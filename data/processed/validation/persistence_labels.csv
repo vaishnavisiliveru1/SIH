@@ -1,0 +1,17 @@
+source_id,label,reason
+SOURCE_0002,transient,single active day
+SOURCE_0003,transient,single active day
+SOURCE_0005,transient,single active day
+SOURCE_0006,transient,single active day
+SOURCE_0007,transient,single active day
+SOURCE_0008,transient,single active day
+SOURCE_0013,transient,single active day
+SOURCE_0014,transient,single active day
+SOURCE_0022,transient,single active day
+SOURCE_0023,transient,single active day
+SOURCE_0004,persistent,detected across 5 active days
+SOURCE_0012,persistent,detected across 5 active days
+SOURCE_0015,persistent,detected across 5 active days
+SOURCE_0018,persistent,detected across 5 active days
+SOURCE_0020,persistent,detected across 5 active days
+SOURCE_0021,persistent,detected across 4 active days
