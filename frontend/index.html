@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>AI Thermal Intelligence | FIRMS • OSM • Satellite</title>
+
+  <!-- Bootstrap -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  >
+
+  <!-- Font Awesome -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+  >
+
+  <!-- Leaflet -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  >
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<!-- =========================================================
+     HEADER
+========================================================= -->
+
+<header class="top-header">
+
+  <div class="header-left">
+
+    <div class="brand-icon">
+      <i class="fa-solid fa-satellite"></i>
+    </div>
+
+    <div>
+      <h1>
+        AI-BASED DETECTION & CLASSIFICATION
+      </h1>
+
+      <p>
+        Industrial Fires & Persistent Thermal Sources
+      </p>
+
+      <div class="data-sources">
+        <span>
+          <i class="fa-solid fa-fire"></i> NASA FIRMS
+        </span>
+
+        <span>
+          <i class="fa-solid fa-industry"></i> OSM / GIS
+        </span>
+
+        <span>
+          <i class="fa-solid fa-earth-americas"></i> Satellite Data
+        </span>
+
+        <span>
+          <i class="fa-solid fa-brain"></i> AI / ML
+        </span>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="system-status">
+
+    <div class="status-indicator">
+      <span class="pulse"></span>
+      SYSTEM ONLINE
+    </div>
+
+    <div class="status-sub">
+      GEOSPATIAL INTELLIGENCE PLATFORM
+    </div>
+
+  </div>
+
+</header>
+
+
+<!-- =========================================================
+     MAIN
+========================================================= -->
+
+<main class="dashboard-container">
+
+  <!-- =====================================================
+       STATISTICS
+  ====================================================== -->
+
+  <section class="stats-grid">
+
+    <div class="stat-card total-card">
+      <div class="stat-icon">
+        <i class="fa-solid fa-fire"></i>
+      </div>
+
+      <div>
+        <span class="stat-label">
+          TOTAL THERMAL SOURCES
+        </span>
+
+        <strong id="total-sources">
+          0
+        </strong>
+      </div>
+    </div>
+
+
+    <div class="stat-card industrial-card">
+      <div class="stat-icon">
+        <i class="fa-solid fa-industry"></i>
+      </div>
+
+      <div>
+        <span class="stat-label">
+          INDUSTRIAL
+        </span>
+
+        <strong id="industrial-count">
+          0
+        </strong>
+      </div>
+    </div>
+
+
+    <div class="stat-card forest-card">
+      <div class="stat-icon">
+        <i class="fa-solid fa-tree"></i>
+      </div>
+
+      <div>
+        <span class="stat-label">
+          FOREST / NATURAL
+        </span>
+
+        <strong id="forest-count">
+          0
+        </strong>
+      </div>
+    </div>
+
+
+    <div class="stat-card agricultural-card">
+      <div class="stat-icon">
+        <i class="fa-solid fa-wheat-awn"></i>
+      </div>
+
+      <div>
+        <span class="stat-label">
+          AGRICULTURAL
+        </span>
+
+        <strong id="agricultural-count">
+          0
+        </strong>
+      </div>
+    </div>
+
+
+    <div class="stat-card other-card">
+      <div class="stat-icon">
+        <i class="fa-solid fa-circle-question"></i>
+      </div>
+
+      <div>
+        <span class="stat-label">
+          OTHER
+        </span>
+
+        <strong id="other-count">
+          0
+        </strong>
+      </div>
+    </div>
+
+  </section>
+
+
+  <!-- =====================================================
+       MAP + CONTROL PANEL
+  ====================================================== -->
+
+  <section class="main-grid">
+
+    <!-- MAP -->
+
+    <div class="map-panel">
+
+      <div class="panel-header">
+
+        <div>
+          <span class="panel-kicker">
+            GEOSPATIAL MONITORING
+          </span>
+
+          <h2>
+            Thermal Event Map
+          </h2>
+        </div>
+
+        <div class="map-status">
+          <span class="live-dot"></span>
+          LIVE DATA VIEW
+        </div>
+
+      </div>
+
+      <div class="map-wrapper">
+
+        <div id="map"></div>
+
+        <!-- MAP LEGEND -->
+
+        <div class="map-legend">
+
+          <div class="legend-heading">
+            EVENT CLASSIFICATION
+          </div>
+
+          <div class="legend-row">
+            <span class="legend-dot industrial"></span>
+            Industrial
+          </div>
+
+          <div class="legend-row">
+            <span class="legend-dot forest"></span>
+            Forest / Natural
+          </div>
+
+          <div class="legend-row">
+            <span class="legend-dot agricultural"></span>
+            Agricultural
+          </div>
+
+          <div class="legend-row">
+            <span class="legend-dot other"></span>
+            Other
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <!-- CONTROL PANEL -->
+
+    <aside class="control-panel">
+
+      <div class="panel-header">
+        <div>
+          <span class="panel-kicker">
+            ANALYSIS CONTROLS
+          </span>
+
+          <h2>
+            Filters
+          </h2>
+        </div>
+
+        <i class="fa-solid fa-sliders"></i>
+      </div>
+
+
+      <div class="filter-group">
+
+        <label>
+          <i class="fa-solid fa-layer-group"></i>
+          EVENT TYPE
+        </label>
+
+        <select id="type-filter">
+          <option value="ALL">
+            All Event Types
+          </option>
+
+          <option value="Industrial">
+            Industrial
+          </option>
+
+          <option value="Forest/Natural">
+            Forest / Natural
+          </option>
+
+          <option value="Agricultural">
+            Agricultural
+          </option>
+
+          <option value="Other">
+            Other
+          </option>
+        </select>
+
+      </div>
+
+
+      <div class="filter-group">
+
+        <label>
+          <i class="fa-solid fa-magnifying-glass"></i>
+          SOURCE ID
+        </label>
+
+        <input
+          type="text"
+          id="search-input"
+          placeholder="SOURCE_0001"
+        >
+
+      </div>
+
+
+      <div class="filter-group">
+
+        <label>
+          <i class="fa-solid fa-map-location-dot"></i>
+          LAND COVER
+        </label>
+
+        <select id="landcover-filter">
+
+          <option value="ALL">
+            All Land Covers
+          </option>
+
+        </select>
+
+      </div>
+
+
+      <div class="filter-group">
+
+        <label>
+          <i class="fa-solid fa-chart-line"></i>
+          MINIMUM CONFIDENCE
+        </label>
+
+        <select id="confidence-filter">
+
+          <option value="0">
+            Any Confidence
+          </option>
+
+          <option value="50">
+            ≥ 50%
+          </option>
+
+          <option value="70">
+            ≥ 70%
+          </option>
+
+          <option value="80">
+            ≥ 80%
+          </option>
+
+          <option value="90">
+            ≥ 90%
+          </option>
+
+        </select>
+
+      </div>
+
+
+      <button id="reset-btn" class="reset-button">
+
+        <i class="fa-solid fa-rotate-left"></i>
+
+        RESET FILTERS
+
+      </button>
+
+
+      <div class="system-info">
+
+        <div class="system-info-title">
+          <i class="fa-solid fa-circle-info"></i>
+          DATA PIPELINE
+        </div>
+
+        <div class="pipeline-step">
+          <span>01</span>
+          NASA FIRMS Thermal Detection
+        </div>
+
+        <div class="pipeline-step">
+          <span>02</span>
+          GIS / Industrial Context
+        </div>
+
+        <div class="pipeline-step">
+          <span>03</span>
+          Temporal Analysis
+        </div>
+
+        <div class="pipeline-step">
+          <span>04</span>
+          AI Event Classification
+        </div>
+
+      </div>
+
+    </aside>
+
+  </section>
+
+
+  <!-- =====================================================
+       SELECTED EVENT
+  ====================================================== -->
+
+  <section class="details-panel">
+
+    <div class="panel-header">
+
+      <div>
+        <span class="panel-kicker">
+          SOURCE ANALYSIS
+        </span>
+
+        <h2>
+          Selected Thermal Source
+        </h2>
+      </div>
+
+      <span id="selected-source-label" class="source-label">
+        NO SOURCE SELECTED
+      </span>
+
+    </div>
+
+
+    <div id="details-content" class="details-empty">
+
+      <i class="fa-solid fa-crosshairs"></i>
+
+      <h3>
+        Select a thermal source
+      </h3>
+
+      <p>
+        Click a marker on the map or select an event from the table
+        to view AI classification and source-level information.
+      </p>
+
+    </div>
+
+  </section>
+
+
+  <!-- =====================================================
+       EVENT LOGS
+  ====================================================== -->
+
+  <section class="table-panel">
+
+    <div class="panel-header">
+
+      <div>
+        <span class="panel-kicker">
+          EVENT DATABASE
+        </span>
+
+        <h2>
+          Thermal Event Logs
+        </h2>
+      </div>
+
+      <div id="visible-count" class="visible-count">
+        0 EVENTS
+      </div>
+
+    </div>
+
+
+    <div class="table-container">
+
+      <table>
+
+        <thead>
+
+          <tr>
+
+            <th>SOURCE ID</th>
+
+            <th>AI CLASSIFICATION</th>
+
+            <th>CONFIDENCE</th>
+
+            <th>LATITUDE</th>
+
+            <th>LONGITUDE</th>
+
+            <th>LAND COVER</th>
+
+            <th>MEAN FRP</th>
+
+            <th>PERSISTENCE</th>
+
+            <th>ACTION</th>
+
+          </tr>
+
+        </thead>
+
+        <tbody id="table-body">
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+  </section>
+
+</main>
+
+
+<!-- =========================================================
+     FOOTER
+========================================================= -->
+
+<footer>
+
+  <div>
+    AI-BASED THERMAL EVENT INTELLIGENCE PLATFORM
+  </div>
+
+  <div>
+    NASA FIRMS • OSM • GIS • SATELLITE • MACHINE LEARNING
+  </div>
+
+</footer>
+
+
+<!-- =========================================================
+     JAVASCRIPT
+========================================================= -->
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+<script src="app.js"></script>
+
+</body>
+</html>
