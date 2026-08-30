@@ -16,210 +16,320 @@ let markersLayer;
 
 let map;
 
+let alerts = [];
+
+const ALERT_THRESHOLDS = {
+    critical: 85,
+    high: 70,
+    monitor: 50
+};
+
 
 /*
-   Backend API
-
-   Change this if your FastAPI/Flask backend
-   runs on another address or port.
+   BACKEND / DATA PATHS
 */
 
-const BACKEND_URL = "http://127.0.0.1:8000/predict";
+const DATA_PATHS = [
+    "predictions.csv",
+    "./predictions.csv",
+    "data/predictions.csv",
+    "./data/predictions.csv",
+    "frontend/predictions.csv",
+    "./frontend/predictions.csv"
+];
 
 
 /* =========================================================
-   INITIALIZE
+   DOM READY
 ========================================================= */
 
-document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", () => {
 
     initializeMap();
-
-    loadPredictionData();
 
     setupEventListeners();
 
     setupPredictionForm();
 
+    loadPredictionData();
+
 });
 
 
 /* =========================================================
-   MAP
+   MAP INITIALIZATION
 ========================================================= */
 
 function initializeMap() {
 
-    map = L.map("map", {
-        zoomControl: true
-    }).setView(
-        [20.5937, 78.9629],
-        5
-    );
+    const mapElement = document.getElementById("map");
 
+    if (!mapElement) {
+        console.warn("Map element not found.");
+        return;
+    }
+
+    map = L.map("map", {
+        zoomControl: true,
+        minZoom: 2,
+        worldCopyJump: true
+    }).setView([20, 78], 4);
 
     L.tileLayer(
         "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
         {
-            maxZoom: 19,
             attribution:
-                "&copy; OpenStreetMap contributors"
+                '&copy; OpenStreetMap contributors',
+            maxZoom: 19
         }
     ).addTo(map);
 
-
-    markersLayer =
-        L.layerGroup().addTo(map);
-
+    markersLayer = L.layerGroup().addTo(map);
 }
 
 
 /* =========================================================
-   LOAD CSV
+   LOAD PREDICTION DATA
 ========================================================= */
 
-function loadPredictionData() {
+async function loadPredictionData() {
 
-    const possiblePaths = [
+    let loaded = false;
 
-        "static/predictions.csv",
+    for (const path of DATA_PATHS) {
 
-        "./static/predictions.csv",
+        try {
 
-        "data/predictions.csv",
+            const response = await fetch(path);
 
-        "./predictions.csv"
+            if (!response.ok) {
+                continue;
+            }
 
-    ];
+            const csvText = await response.text();
 
+            if (!csvText.trim()) {
+                continue;
+            }
 
-    tryNextPath(
-        possiblePaths,
-        0
-    );
+            processData(csvText);
 
-}
+            loaded = true;
 
+            console.log(
+                "Prediction data loaded from:",
+                path
+            );
 
-/* =========================================================
-   TRY CSV PATH
-========================================================= */
+            break;
 
-function tryNextPath(
-    paths,
-    index
-) {
+        } catch (error) {
 
-    if (index >= paths.length) {
+            console.warn(
+                "Unable to load:",
+                path
+            );
 
-        showDataError();
-
-        return;
+        }
 
     }
 
+    if (!loaded) {
 
-    Papa.parse(
-        paths[index],
-        {
+        showDataError(
+            "Unable to load predictions.csv. " +
+            "Make sure the file is inside the frontend folder."
+        );
 
-            download: true,
-
-            header: true,
-
-            skipEmptyLines: true,
-
-            dynamicTyping: false,
+    }
+}
 
 
-            complete: function (results) {
+/* =========================================================
+   FALLBACK PATH LOADER
+========================================================= */
 
-                if (
-                    results.errors &&
-                    results.errors.length > 0
-                ) {
+async function tryNextPath(paths, index = 0) {
 
-                    tryNextPath(
-                        paths,
-                        index + 1
-                    );
+    if (index >= paths.length) {
+        return false;
+    }
 
-                    return;
+    try {
 
-                }
+        const response = await fetch(paths[index]);
 
-
-                if (
-                    !results.data ||
-                    results.data.length === 0
-                ) {
-
-                    tryNextPath(
-                        paths,
-                        index + 1
-                    );
-
-                    return;
-
-                }
-
-
-                console.log(
-                    "Loaded:",
-                    paths[index]
-                );
-
-
-                processData(
-                    results.data
-                );
-
-            },
-
-
-            error: function () {
-
-                tryNextPath(
-                    paths,
-                    index + 1
-                );
-
-            }
-
+        if (!response.ok) {
+            return tryNextPath(paths, index + 1);
         }
-    );
+
+        const text = await response.text();
+
+        if (!text.trim()) {
+            return tryNextPath(paths, index + 1);
+        }
+
+        processData(text);
+
+        return true;
+
+    } catch (error) {
+
+        return tryNextPath(paths, index + 1);
+
+    }
+}
+
+
+/* =========================================================
+   CSV PROCESSING
+========================================================= */
+
+function processData(csvText) {
+
+    const rows = parseCSV(csvText);
+
+    if (!rows.length) {
+
+        showDataError(
+            "No prediction records were found."
+        );
+
+        return;
+    }
+
+    allEvents = rows
+        .map(normalizeEvent)
+        .filter(isValidEvent);
+
+    filteredEvents = [...allEvents];
+
+    updateDashboard();
+
+    populateLandCoverFilter();
+
+    applyFilters();
+
+    updateAlerts(allEvents);
 
 }
 
 
 /* =========================================================
-   PROCESS DATA
+   CSV PARSER
 ========================================================= */
 
-function processData(data) {
+function parseCSV(text) {
 
-    allEvents = data
-        .map(normalizeEvent)
-        .filter(isValidEvent);
+    const rows = [];
 
+    let row = [];
 
-    filteredEvents =
-        [...allEvents];
+    let value = "";
 
+    let insideQuotes = false;
 
-    populateLandCoverFilter();
+    for (let i = 0; i < text.length; i++) {
 
-    updateDashboard();
+        const char = text[i];
 
-    renderMarkers();
+        const next = text[i + 1];
 
-    renderTable();
+        if (char === '"' && insideQuotes && next === '"') {
 
+            value += '"';
 
-    console.log(
-        `Loaded ${allEvents.length} thermal sources`
+            i++;
+
+            continue;
+        }
+
+        if (char === '"') {
+
+            insideQuotes = !insideQuotes;
+
+            continue;
+        }
+
+        if (char === "," && !insideQuotes) {
+
+            row.push(value.trim());
+
+            value = "";
+
+            continue;
+        }
+
+        if (
+            (char === "\n" || char === "\r") &&
+            !insideQuotes
+        ) {
+
+            if (
+                char === "\r" &&
+                next === "\n"
+            ) {
+                i++;
+            }
+
+            row.push(value.trim());
+
+            value = "";
+
+            if (
+                row.length &&
+                row.some(cell => cell !== "")
+            ) {
+                rows.push(row);
+            }
+
+            row = [];
+
+            continue;
+        }
+
+        value += char;
+    }
+
+    if (value.length || row.length) {
+
+        row.push(value.trim());
+
+        if (
+            row.length &&
+            row.some(cell => cell !== "")
+        ) {
+            rows.push(row);
+        }
+    }
+
+    if (rows.length < 2) {
+        return [];
+    }
+
+    const headers = rows[0].map(
+        header =>
+            header
+                .trim()
+                .replace(/^"|"$/g, "")
     );
 
+    return rows.slice(1).map(values => {
+
+        const object = {};
+
+        headers.forEach((header, index) => {
+
+            object[header] =
+                values[index] !== undefined
+                    ? values[index]
+                    : "";
+
+        });
+
+        return object;
+
+    });
 }
 
 
@@ -227,348 +337,421 @@ function processData(data) {
    NORMALIZE EVENT
 ========================================================= */
 
-function normalizeEvent(row) {
+function normalizeEvent(raw) {
 
-    const event = {};
+    return {
 
+        ...raw,
 
-    Object.keys(row).forEach(
-        key => {
-
-            event[key] =
-                row[key];
-
-        }
-    );
-
-
-    event.source_id =
-        getValue(
-            row,
-            [
-                "source_id",
-                "SOURCE_ID",
-                "Source_ID"
-            ]
-        );
-
-
-    event.predicted_event_type =
-        getValue(
-            row,
-            [
-                "predicted_event_type",
-                "event_type",
-                "classification"
-            ]
-        ) || "Other";
-
-
-    event.confidence =
-        parseNumber(
+        event_id:
             getValue(
-                row,
+                raw,
                 [
-                    "confidence_pct",
-                    "confidence",
-                    "prediction_confidence"
+                    "event_id",
+                    "eventId",
+                    "id",
+                    "source_id"
+                ]
+            ),
+
+        latitude:
+            parseNumber(
+                getValue(
+                    raw,
+                    [
+                        "latitude",
+                        "lat"
+                    ]
+                )
+            ),
+
+        longitude:
+            parseNumber(
+                getValue(
+                    raw,
+                    [
+                        "longitude",
+                        "lon",
+                        "lng"
+                    ]
+                )
+            ),
+
+        event_type:
+            getValue(
+                raw,
+                [
+                    "event_type",
+                    "eventType",
+                    "classification",
+                    "predicted_class",
+                    "prediction",
+                    "type"
+                ]
+            ) || "Unknown",
+
+        confidence:
+            safeConfidence(raw),
+
+        mean_frp:
+            parseNumber(
+                getValue(
+                    raw,
+                    [
+                        "mean_frp",
+                        "mean_frp_mw"
+                    ]
+                )
+            ),
+
+        max_frp:
+            parseNumber(
+                getValue(
+                    raw,
+                    [
+                        "max_frp",
+                        "max_frp_mw"
+                    ]
+                )
+            ),
+
+        mean_brightness:
+            parseNumber(
+                getValue(
+                    raw,
+                    [
+                        "mean_brightness"
+                    ]
+                )
+            ),
+
+        max_brightness:
+            parseNumber(
+                getValue(
+                    raw,
+                    [
+                        "max_brightness"
+                    ]
+                )
+            ),
+
+        distance_to_industry:
+            parseNumber(
+                getValue(
+                    raw,
+                    [
+                        "mean_distance_to_industry_km",
+                        "mean_distance_industry_km",
+                        "distance_to_nearest_industry_km"
+                    ]
+                )
+            ),
+
+        min_distance_to_industry:
+            parseNumber(
+                getValue(
+                    raw,
+                    [
+                        "min_distance_to_industry_km",
+                        "min_distance_industry_km"
+                    ]
+                )
+            ),
+
+        facilities_1km:
+            parseNumber(
+                getValue(
+                    raw,
+                    [
+                        "mean_industrial_facilities_1km",
+                        "number_of_industrial_facilities_1km"
+                    ]
+                )
+            ),
+
+        facilities_5km:
+            parseNumber(
+                getValue(
+                    raw,
+                    [
+                        "mean_industrial_facilities_5km",
+                        "number_of_industrial_facilities_5km"
+                    ]
+                )
+            ),
+
+        industrial_land_ratio:
+            parseNumber(
+                getValue(
+                    raw,
+                    [
+                        "industrial_land_ratio"
+                    ]
+                )
+            ),
+
+        nearest_facility_type:
+            getValue(
+                raw,
+                [
+                    "nearest_facility_type"
+                ]
+            ),
+
+        nearest_refinery_km:
+            parseNumber(
+                getValue(
+                    raw,
+                    [
+                        "nearest_refinery_km"
+                    ]
+                )
+            ),
+
+        nearest_powerplant_km:
+            parseNumber(
+                getValue(
+                    raw,
+                    [
+                        "nearest_powerplant_km"
+                    ]
+                )
+            ),
+
+        nearest_mine_km:
+            parseNumber(
+                getValue(
+                    raw,
+                    [
+                        "nearest_mine_km"
+                    ]
+                )
+            ),
+
+        nearest_industrial_area_km:
+            parseNumber(
+                getValue(
+                    raw,
+                    [
+                        "nearest_industrial_area_km"
+                    ]
+                )
+            ),
+
+        landcover_code:
+            getValue(
+                raw,
+                [
+                    "landcover_code"
+                ]
+            ),
+
+        landcover_class:
+            getValue(
+                raw,
+                [
+                    "landcover_class",
+                    "landcover"
+                ]
+            ),
+
+        total_detections:
+            parseNumber(
+                getValue(
+                    raw,
+                    [
+                        "total_detections"
+                    ]
+                )
+            ),
+
+        active_days:
+            parseNumber(
+                getValue(
+                    raw,
+                    [
+                        "active_days"
+                    ]
+                )
+            ),
+
+        observation_span_days:
+            parseNumber(
+                getValue(
+                    raw,
+                    [
+                        "observation_span_days"
+                    ]
+                )
+            ),
+
+        recurrence_rate:
+            parseNumber(
+                getValue(
+                    raw,
+                    [
+                        "recurrence_rate"
+                    ]
+                )
+            ),
+
+        detections_per_span_day:
+            parseNumber(
+                getValue(
+                    raw,
+                    [
+                        "detections_per_span_day"
+                    ]
+                )
+            ),
+
+        mean_gap_hours:
+            parseNumber(
+                getValue(
+                    raw,
+                    [
+                        "mean_gap_hours"
+                    ]
+                )
+            ),
+
+        std_gap_hours:
+            parseNumber(
+                getValue(
+                    raw,
+                    [
+                        "std_gap_hours"
+                    ]
+                )
+            ),
+
+        median_gap_hours:
+            parseNumber(
+                getValue(
+                    raw,
+                    [
+                        "median_gap_hours"
+                    ]
+                )
+            ),
+
+        min_gap_hours:
+            parseNumber(
+                getValue(
+                    raw,
+                    [
+                        "min_gap_hours"
+                    ]
+                )
+            ),
+
+        max_gap_hours:
+            parseNumber(
+                getValue(
+                    raw,
+                    [
+                        "max_gap_hours"
+                    ]
+                )
+            ),
+
+        temporal_regularity:
+            parseNumber(
+                getValue(
+                    raw,
+                    [
+                        "temporal_regularity"
+                    ]
+                )
+            ),
+
+        max_active_days_7d:
+            parseNumber(
+                getValue(
+                    raw,
+                    [
+                        "max_active_days_7d"
+                    ]
+                )
+            ),
+
+        max_active_days_14d:
+            parseNumber(
+                getValue(
+                    raw,
+                    [
+                        "max_active_days_14d"
+                    ]
+                )
+            ),
+
+        max_active_days_30d:
+            parseNumber(
+                getValue(
+                    raw,
+                    [
+                        "max_active_days_30d"
+                    ]
+                )
+            ),
+
+        observation_days:
+            parseNumber(
+                getValue(
+                    raw,
+                    [
+                        "observation_days"
+                    ]
+                )
+            ),
+
+        acq_date:
+            getValue(
+                raw,
+                [
+                    "acq_date",
+                    "date"
+                ]
+            ),
+
+        acq_time_utc:
+            getValue(
+                raw,
+                [
+                    "acq_time_utc",
+                    "time"
                 ]
             )
-        );
-
-
-    event.latitude =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "latitude",
-                    "lat",
-                    "LATITUDE"
-                ]
-            )
-        );
-
-
-    event.longitude =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "longitude",
-                    "lon",
-                    "LONGITUDE"
-                ]
-            )
-        );
-
-
-    event.landcover =
-        getValue(
-            row,
-            [
-                "landcover_class",
-                "land_cover",
-                "landcover",
-                "land_cover_class"
-            ]
-        ) || "Unknown";
-
-
-    event.mean_frp =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "mean_frp",
-                    "mean_frp_mw"
-                ]
-            )
-        );
-
-
-    event.max_frp =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "max_frp",
-                    "max_frp_mw"
-                ]
-            )
-        );
-
-
-    event.mean_brightness =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "mean_brightness"
-                ]
-            )
-        );
-
-
-    event.max_brightness =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "max_brightness"
-                ]
-            )
-        );
-
-
-    event.mean_distance_industry =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "mean_distance_to_industry_km",
-                    "mean_distance_industry"
-                ]
-            )
-        );
-
-
-    event.min_distance_industry =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "min_distance_to_industry_km",
-                    "min_distance_industry"
-                ]
-            )
-        );
-
-
-    event.facilities_1km =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "mean_industrial_facilities_1km",
-                    "number_of_industrial_facilities_1km"
-                ]
-            )
-        );
-
-
-    event.facilities_5km =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "mean_industrial_facilities_5km",
-                    "number_of_industrial_facilities_5km"
-                ]
-            )
-        );
-
-
-    event.nearest_facility_type =
-        getValue(
-            row,
-            [
-                "nearest_facility_type"
-            ]
-        ) || "N/A";
-
-
-    event.nearest_refinery =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "nearest_refinery_km"
-                ]
-            )
-        );
-
-
-    event.nearest_powerplant =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "nearest_powerplant_km"
-                ]
-            )
-        );
-
-
-    event.nearest_mine =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "nearest_mine_km"
-                ]
-            )
-        );
-
-
-    event.nearest_industrial_area =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "nearest_industrial_area_km"
-                ]
-            )
-        );
-
-
-    /* M4 */
-
-    event.total_detections =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "total_detections"
-                ]
-            )
-        );
-
-
-    event.active_days =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "active_days"
-                ]
-            )
-        );
-
-
-    event.observation_span_days =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "observation_span_days"
-                ]
-            )
-        );
-
-
-    event.recurrence_rate =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "recurrence_rate"
-                ]
-            )
-        );
-
-
-    event.temporal_regularity =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "temporal_regularity"
-                ]
-            )
-        );
-
-
-    return event;
-
+    };
 }
 
 
 /* =========================================================
-   HELPERS
+   GET VALUE
 ========================================================= */
 
-function getValue(
-    row,
-    possibleNames
-) {
+function getValue(object, keys) {
 
-    for (
-        const name of possibleNames
-    ) {
+    for (const key of keys) {
 
         if (
-            Object.prototype.hasOwnProperty.call(
-                row,
-                name
-            )
+            object[key] !== undefined &&
+            object[key] !== null &&
+            String(object[key]).trim() !== ""
         ) {
 
-            const value =
-                row[name];
-
-
-            if (
-                value !== undefined &&
-                value !== null &&
-                String(value).trim() !== ""
-            ) {
-
-                return String(
-                    value
-                ).trim();
-
-            }
+            return object[key];
 
         }
-
     }
 
-
     return "";
-
 }
 
+
+/* =========================================================
+   NUMBER PARSER
+========================================================= */
 
 function parseNumber(value) {
 
@@ -577,191 +760,158 @@ function parseNumber(value) {
         value === null ||
         value === ""
     ) {
-
-        return null;
-
+        return NaN;
     }
 
+    const cleaned =
+        String(value)
+            .replace("%", "")
+            .replace(/,/g, "")
+            .trim();
 
-    const number =
-        Number(
-            String(value)
-                .replace("%", "")
-                .trim()
-        );
-
+    const number = Number(cleaned);
 
     return Number.isFinite(number)
         ? number
-        : null;
-
-}
-
-
-function isValidEvent(event) {
-
-    return (
-        event.source_id &&
-        Number.isFinite(event.latitude) &&
-        Number.isFinite(event.longitude)
-    );
-
-}
-
-
-function setText(
-    id,
-    value
-) {
-
-    const element =
-        document.getElementById(id);
-
-
-    if (element) {
-
-        element.textContent =
-            value;
-
-    }
-
+        : NaN;
 }
 
 
 /* =========================================================
-   DASHBOARD COUNTERS
+   EVENT VALIDATION
+========================================================= */
+
+function isValidEvent(event) {
+
+    return (
+        Number.isFinite(event.latitude) &&
+        Number.isFinite(event.longitude)
+    );
+}
+
+
+/* =========================================================
+   SET TEXT
+========================================================= */
+
+function setText(id, value) {
+
+    const element =
+        document.getElementById(id);
+
+    if (!element) return;
+
+    element.textContent =
+        value === undefined ||
+        value === null ||
+        value === ""
+            ? "—"
+            : value;
+}
+
+
+/* =========================================================
+   UPDATE DASHBOARD
 ========================================================= */
 
 function updateDashboard() {
 
     const total =
-        filteredEvents.length;
-
+        allEvents.length;
 
     const industrial =
-        filteredEvents.filter(
-            e =>
-                normalizeType(
-                    e.predicted_event_type
-                ) === "Industrial"
+        allEvents.filter(
+            event =>
+                normalizeType(event.event_type)
+                === "industrial"
         ).length;
-
 
     const forest =
-        filteredEvents.filter(
-            e =>
-                normalizeType(
-                    e.predicted_event_type
-                ) === "Forest/Natural"
+        allEvents.filter(
+            event =>
+                normalizeType(event.event_type)
+                === "forest"
         ).length;
 
-
-    const agricultural =
-        filteredEvents.filter(
-            e =>
-                normalizeType(
-                    e.predicted_event_type
-                ) === "Agricultural"
+    const natural =
+        allEvents.filter(
+            event =>
+                normalizeType(event.event_type)
+                === "natural"
         ).length;
 
-
-    const other =
-        filteredEvents.filter(
-            e =>
-                normalizeType(
-                    e.predicted_event_type
-                ) === "Other"
-        ).length;
-
+    setText("totalEvents", total);
 
     setText(
-        "total-sources",
-        total
-    );
-
-
-    setText(
-        "industrial-count",
+        "industrialEvents",
         industrial
     );
 
-
     setText(
-        "forest-count",
+        "forestEvents",
         forest
     );
 
-
     setText(
-        "agricultural-count",
-        agricultural
+        "naturalEvents",
+        natural
     );
 
-
     setText(
-        "other-count",
-        other
+        "eventCount",
+        total
     );
 
-
     setText(
-        "visible-count",
-        `${total} EVENTS`
+        "totalCount",
+        total
     );
 
 }
 
 
 /* =========================================================
-   TYPE NORMALIZATION
+   NORMALIZE EVENT TYPE
 ========================================================= */
 
 function normalizeType(type) {
 
-    if (!type) {
-
-        return "Other";
-
-    }
-
-
     const value =
-        String(type)
-            .trim()
-            .toLowerCase();
-
+        String(type || "")
+            .toLowerCase()
+            .trim();
 
     if (
         value.includes("industrial")
     ) {
-
-        return "Industrial";
-
+        return "industrial";
     }
 
+    if (
+        value.includes("forest")
+    ) {
+        return "forest";
+    }
 
     if (
-        value.includes("forest") ||
         value.includes("natural")
     ) {
-
-        return "Forest/Natural";
-
+        return "natural";
     }
-
 
     if (
-        value.includes("agricultural") ||
-        value.includes("agriculture")
+        value.includes("agric")
     ) {
-
-        return "Agricultural";
-
+        return "agriculture";
     }
 
+    if (
+        value.includes("persistent")
+    ) {
+        return "persistent";
+    }
 
-    return "Other";
-
+    return value;
 }
 
 
@@ -773,372 +923,798 @@ function populateLandCoverFilter() {
 
     const select =
         document.getElementById(
-            "landcover-filter"
+            "landcoverFilter"
         );
-
 
     if (!select) return;
 
-
-    select.innerHTML = `
-        <option value="ALL">
-            All Land Covers
-        </option>
-    `;
-
-
-    const values =
+    const classes =
         [
             ...new Set(
                 allEvents
                     .map(
-                        e =>
-                            e.landcover
+                        event =>
+                            event.landcover_class
                     )
-                    .filter(
-                        value =>
-                            value &&
-                            value !== "Unknown"
-                    )
+                    .filter(Boolean)
             )
         ]
         .sort();
 
+    select.innerHTML =
+        `<option value="all">All Land Cover</option>`;
 
-    values.forEach(
-        value => {
+    classes.forEach(
+        landcover => {
 
             const option =
-                document.createElement(
-                    "option"
-                );
-
+                document.createElement("option");
 
             option.value =
-                value;
-
+                landcover;
 
             option.textContent =
-                value;
+                landcover;
 
-
-            select.appendChild(
-                option
-            );
+            select.appendChild(option);
 
         }
     );
-
 }
 
 
 /* =========================================================
-   FILTERING
+   FILTER EVENTS
 ========================================================= */
 
 function applyFilters() {
 
-    const type =
+    const typeFilter =
         document.getElementById(
-            "type-filter"
-        ).value;
+            "eventTypeFilter"
+        );
 
+    const confidenceFilter =
+        document.getElementById(
+            "confidenceFilter"
+        );
+
+    const landcoverFilter =
+        document.getElementById(
+            "landcoverFilter"
+        );
+
+    const searchInput =
+        document.getElementById(
+            "searchInput"
+        );
+
+    const selectedType =
+        typeFilter
+            ? typeFilter.value
+            : "all";
+
+    const selectedLandcover =
+        landcoverFilter
+            ? landcoverFilter.value
+            : "all";
+
+    const minConfidence =
+        confidenceFilter
+            ? Number(confidenceFilter.value || 0)
+            : 0;
 
     const search =
-        document.getElementById(
-            "search-input"
-        ).value
-            .trim()
-            .toLowerCase();
-
-
-    const landcover =
-        document.getElementById(
-            "landcover-filter"
-        ).value;
-
-
-    const minimumConfidence =
-        Number(
-            document.getElementById(
-                "confidence-filter"
-            ).value
-        );
-
+        searchInput
+            ? searchInput.value
+                .toLowerCase()
+                .trim()
+            : "";
 
     filteredEvents =
-        allEvents.filter(
-            event => {
+        allEvents.filter(event => {
 
-
-                const normalizedType =
-                    normalizeType(
-                        event.predicted_event_type
-                    );
-
-
-                const matchesType =
-                    type === "ALL" ||
-                    normalizedType === type;
-
-
-                const matchesSearch =
-                    !search ||
-                    event.source_id
-                        .toLowerCase()
-                        .includes(search);
-
-
-                const matchesLandcover =
-                    landcover === "ALL" ||
-                    event.landcover === landcover;
-
-
-                const matchesConfidence =
-                    !Number.isFinite(
-                        event.confidence
-                    ) ||
-                    safeConfidence(
-                        event.confidence
-                    ) >= minimumConfidence;
-
-
-                return (
-                    matchesType &&
-                    matchesSearch &&
-                    matchesLandcover &&
-                    matchesConfidence
+            const matchesType =
+                selectedType === "all" ||
+                normalizeType(
+                    event.event_type
+                ) === normalizeType(
+                    selectedType
                 );
 
-            }
-        );
+            const matchesLandcover =
+                selectedLandcover === "all" ||
+                event.landcover_class ===
+                    selectedLandcover;
 
+            const matchesConfidence =
+                !Number.isFinite(
+                    event.confidence
+                ) ||
+                event.confidence >=
+                    minConfidence;
 
-    updateDashboard();
+            const searchable =
+                [
+                    event.event_id,
+                    event.event_type,
+                    event.landcover_class,
+                    event.nearest_facility_type
+                ]
+                .join(" ")
+                .toLowerCase();
+
+            const matchesSearch =
+                !search ||
+                searchable.includes(search);
+
+            return (
+                matchesType &&
+                matchesLandcover &&
+                matchesConfidence &&
+                matchesSearch
+            );
+
+        });
 
     renderMarkers();
 
     renderTable();
 
+    setText(
+        "visibleCount",
+        filteredEvents.length
+    );
+
 }
 
 
 /* =========================================================
-   MAP MARKERS
+   RENDER MAP MARKERS
 ========================================================= */
 
 function renderMarkers() {
 
+    if (!markersLayer) return;
+
     markersLayer.clearLayers();
 
+    filteredEvents.forEach(event => {
 
-    const bounds = [];
-
-
-    filteredEvents.forEach(
-        event => {
-
-            const type =
-                normalizeType(
-                    event.predicted_event_type
-                );
-
-
-            const color =
-                getEventColor(type);
-
-
-            const marker =
-                L.circleMarker(
-                    [
-                        event.latitude,
-                        event.longitude
-                    ],
-                    {
-
-                        radius: 7,
-
-                        fillColor: color,
-
-                        color: "#ffffff",
-
-                        weight: 1,
-
-                        opacity: 0.9,
-
-                        fillOpacity: 0.85
-
-                    }
-                );
-
-
-            marker.bindPopup(
-                createPopup(event)
+        const color =
+            getEventColor(
+                event.event_type
             );
 
+        const marker =
+            L.circleMarker(
+                [
+                    event.latitude,
+                    event.longitude
+                ],
+                {
+                    radius: 7,
+                    weight: 2,
+                    color: color,
+                    fillColor: color,
+                    fillOpacity: 0.75
+                }
+            );
 
-            marker.on(
+        marker.bindPopup(
+            createPopup(event)
+        );
+
+        marker.on(
+            "click",
+            () => {
+                showEventDetails(event);
+            }
+        );
+
+        marker.addTo(
+            markersLayer
+        );
+
+    });
+
+}
+
+
+/* =========================================================
+   ALERT SYSTEM
+========================================================= */
+
+function getAlertLevel(confidence) {
+
+    const score =
+        Number(confidence) || 0;
+
+    if (
+        score >=
+        ALERT_THRESHOLDS.critical
+    ) {
+
+        return {
+            level: "CRITICAL",
+            className: "critical",
+            icon: "🚨",
+            message:
+                "High-confidence thermal event detected"
+        };
+
+    }
+
+    if (
+        score >=
+        ALERT_THRESHOLDS.high
+    ) {
+
+        return {
+            level: "HIGH",
+            className: "high",
+            icon: "⚠️",
+            message:
+                "High-confidence event requires attention"
+        };
+
+    }
+
+    if (
+        score >=
+        ALERT_THRESHOLDS.monitor
+    ) {
+
+        return {
+            level: "MONITOR",
+            className: "monitor",
+            icon: "👁️",
+            message:
+                "Event should be monitored"
+        };
+
+    }
+
+    return {
+        level: "LOW RISK",
+        className: "low",
+        icon: "✓",
+        message:
+            "Low-confidence event"
+    };
+
+}
+
+
+/* =========================================================
+   ALERT LABEL
+========================================================= */
+
+function getAlertLabel(confidence) {
+
+    return getAlertLevel(
+        confidence
+    ).level;
+
+}
+
+
+/* =========================================================
+   ALERT ICON
+========================================================= */
+
+function getAlertIcon(confidence) {
+
+    return getAlertLevel(
+        confidence
+    ).icon;
+
+}
+
+
+/* =========================================================
+   UPDATE ALERTS
+========================================================= */
+
+function updateAlerts(events) {
+
+    alerts = [];
+
+    events.forEach(
+        (event, index) => {
+
+            const confidence =
+                safeConfidence(event);
+
+            const alert =
+                getAlertLevel(
+                    confidence
+                );
+
+            if (
+                alert.level !==
+                "LOW RISK"
+            ) {
+
+                alerts.push({
+
+                    id:
+                        event.event_id ||
+                        event.eventId ||
+                        index,
+
+                    event: event,
+
+                    confidence:
+                        confidence,
+
+                    level:
+                        alert.level,
+
+                    className:
+                        alert.className,
+
+                    icon:
+                        alert.icon,
+
+                    message:
+                        alert.message
+
+                });
+
+            }
+
+        }
+    );
+
+    updateAlertCount();
+
+    renderAlertList();
+
+}
+
+
+/* =========================================================
+   UPDATE ALERT COUNT
+========================================================= */
+
+function updateAlertCount() {
+
+    const alertCount =
+        document.getElementById(
+            "alertCount"
+        );
+
+    if (!alertCount) return;
+
+    alertCount.textContent =
+        alerts.length;
+
+    if (
+        alerts.length === 0
+    ) {
+
+        alertCount.style.display =
+            "none";
+
+    } else {
+
+        alertCount.style.display =
+            "inline-flex";
+
+    }
+
+}
+
+
+/* =========================================================
+   RENDER ALERT LIST
+========================================================= */
+
+function renderAlertList() {
+
+    const alertList =
+        document.getElementById(
+            "alertList"
+        );
+
+    if (!alertList) return;
+
+    const critical =
+        alerts.filter(
+            alert =>
+                alert.level ===
+                "CRITICAL"
+        ).length;
+
+    const high =
+        alerts.filter(
+            alert =>
+                alert.level ===
+                "HIGH"
+        ).length;
+
+    const monitor =
+        alerts.filter(
+            alert =>
+                alert.level ===
+                "MONITOR"
+        ).length;
+
+    setText(
+        "criticalAlertCount",
+        critical
+    );
+
+    setText(
+        "highAlertCount",
+        high
+    );
+
+    setText(
+        "monitorAlertCount",
+        monitor
+    );
+
+    if (
+        alerts.length === 0
+    ) {
+
+        alertList.innerHTML = `
+            <div class="no-alerts">
+                <div class="no-alert-icon">✓</div>
+
+                <div>No active alerts</div>
+
+                <small>
+                    All detected events are currently
+                    below the alert threshold.
+                </small>
+            </div>
+        `;
+
+        return;
+    }
+
+    alertList.innerHTML =
+        alerts.map(
+            alert => {
+
+                const event =
+                    alert.event;
+
+                const eventName =
+                    event.event_type ||
+                    event.type ||
+                    event.classification ||
+                    "Thermal Event";
+
+                const eventId =
+                    event.event_id ||
+                    event.eventId ||
+                    "Unknown";
+
+                return `
+                    <div
+                        class="alert-card ${alert.className}"
+                    >
+
+                        <div class="alert-card-icon">
+                            ${alert.icon}
+                        </div>
+
+                        <div class="alert-card-content">
+
+                            <div class="alert-card-header">
+
+                                <strong>
+                                    ${alert.level}
+                                </strong>
+
+                                <span class="alert-confidence">
+                                    ${formatConfidence(
+                                        alert.confidence
+                                    )}
+                                </span>
+
+                            </div>
+
+                            <div class="alert-event-type">
+                                ${escapeHTML(
+                                    eventName
+                                )}
+                            </div>
+
+                            <div class="alert-event-id">
+                                Event:
+                                ${escapeHTML(
+                                    String(eventId)
+                                )}
+                            </div>
+
+                            <div class="alert-message">
+                                ${alert.message}
+                            </div>
+
+                            <button
+                                class="alert-view-button"
+                                data-alert-id="${escapeAttribute(
+                                    String(alert.id)
+                                )}"
+                            >
+                                View Event
+                            </button>
+
+                        </div>
+
+                    </div>
+                `;
+
+            }
+        ).join("");
+
+    alertList
+        .querySelectorAll(
+            ".alert-view-button"
+        )
+        .forEach(button => {
+
+            button.addEventListener(
                 "click",
-                function () {
+                () => {
 
-                    showEventDetails(
-                        event
+                    viewAlertEvent(
+                        button.dataset.alertId
                     );
 
                 }
             );
 
-
-            marker.addTo(
-                markersLayer
-            );
-
-
-            bounds.push(
-                [
-                    event.latitude,
-                    event.longitude
-                ]
-            );
-
-        }
-    );
-
-
-    if (bounds.length > 0) {
-
-        map.fitBounds(
-            bounds,
-            {
-                padding: [
-                    30,
-                    30
-                ],
-                maxZoom: 10
-            }
-        );
-
-    }
+        });
 
 }
 
 
 /* =========================================================
-   POPUP
+   TOGGLE ALERT CENTER
+========================================================= */
+
+function toggleAlertCenter() {
+
+    const alertCenter =
+        document.getElementById(
+            "alertCenter"
+        );
+
+    if (!alertCenter) return;
+
+    alertCenter.classList.toggle(
+        "active"
+    );
+
+    renderAlertList();
+
+}
+
+
+/* =========================================================
+   VIEW ALERT EVENT
+========================================================= */
+
+function viewAlertEvent(id) {
+
+    const alert =
+        alerts.find(
+            item =>
+                String(item.id) ===
+                String(id)
+        );
+
+    if (!alert) return;
+
+    const event =
+        alert.event;
+
+    toggleAlertCenter();
+
+    showEventDetails(event);
+
+}
+
+
+/* =========================================================
+   ADD PREDICTION ALERT
+========================================================= */
+
+function addPredictionAlert(
+    prediction,
+    confidence
+) {
+
+    const alert =
+        getAlertLevel(
+            confidence
+        );
+
+    const resultBox =
+        document.getElementById(
+            "predictionResult"
+        );
+
+    if (!resultBox) return;
+
+    const existing =
+        resultBox.querySelector(
+            ".prediction-alert"
+        );
+
+    if (existing) {
+        existing.remove();
+    }
+
+    if (
+        alert.level ===
+        "LOW RISK"
+    ) {
+        return;
+    }
+
+    const alertElement =
+        document.createElement(
+            "div"
+        );
+
+    alertElement.className =
+        `prediction-alert ${alert.className}`;
+
+    alertElement.innerHTML = `
+        <span class="prediction-alert-icon">
+            ${alert.icon}
+        </span>
+
+        <div>
+            <strong>
+                ${alert.level} ALERT
+            </strong>
+
+            <div>
+                Confidence:
+                ${formatConfidence(
+                    confidence
+                )}
+            </div>
+
+            <small>
+                ${alert.message}
+            </small>
+        </div>
+    `;
+
+    resultBox.appendChild(
+        alertElement
+    );
+
+}
+
+
+/* =========================================================
+   CREATE POPUP
 ========================================================= */
 
 function createPopup(event) {
 
-    const type =
-        normalizeType(
-            event.predicted_event_type
+    const alert =
+        getAlertLevel(
+            event.confidence
         );
 
-
     return `
+        <div class="map-popup">
 
-        <div style="min-width:190px">
-
-            <div
-                style="
-                    font-size:10px;
-                    color:#94a3b8;
-                    letter-spacing:1px;
-                    margin-bottom:5px;
-                "
-            >
-                THERMAL SOURCE
-            </div>
-
-            <strong style="font-size:14px">
+            <div class="popup-title">
                 ${escapeHTML(
-                    event.source_id
+                    event.event_type ||
+                    "Thermal Event"
                 )}
-            </strong>
-
-            <hr
-                style="
-                    border-color:#334155;
-                    margin:9px 0;
-                "
-            >
-
-            <div>
-                <b>AI Classification:</b>
-                ${escapeHTML(type)}
             </div>
 
-            <div>
-                <b>Confidence:</b>
+            <div class="popup-row">
+                <strong>Event ID:</strong>
+                ${escapeHTML(
+                    String(
+                        event.event_id ||
+                        "Unknown"
+                    )
+                )}
+            </div>
+
+            <div class="popup-row">
+                <strong>Confidence:</strong>
                 ${formatConfidence(
                     event.confidence
                 )}
             </div>
 
-            <div>
-                <b>Land Cover:</b>
-                ${escapeHTML(
-                    event.landcover
-                )}
+            <div class="popup-row">
+                <strong>Alert:</strong>
+                ${alert.icon}
+                ${alert.level}
             </div>
 
-            <div>
-                <b>Mean FRP:</b>
+            <div class="popup-row">
+                <strong>FRP:</strong>
                 ${formatNumber(
-                    event.mean_frp
+                    event.max_frp
+                )} MW
+            </div>
+
+            <div class="popup-row">
+                <strong>Land Cover:</strong>
+                ${escapeHTML(
+                    event.landcover_class ||
+                    "—"
                 )}
             </div>
 
             <button
+                class="popup-details-button"
                 onclick="showEventById('${escapeAttribute(
-                    event.source_id
+                    String(event.event_id)
                 )}')"
-                style="
-                    margin-top:10px;
-                    width:100%;
-                    background:#18222d;
-                    color:#e2e8f0;
-                    border:1px solid #334155;
-                    padding:5px;
-                    border-radius:5px;
-                    cursor:pointer;
-                "
             >
-                VIEW SOURCE DETAILS
+                View Details
             </button>
 
         </div>
-
     `;
-
 }
 
 
 /* =========================================================
-   COLORS
+   EVENT COLOR
 ========================================================= */
 
 function getEventColor(type) {
 
-    switch (type) {
+    const normalized =
+        normalizeType(type);
 
-        case "Industrial":
-            return "#ff4d5a";
-
-        case "Forest/Natural":
-            return "#22c55e";
-
-        case "Agricultural":
-            return "#f59e0b";
-
-        case "Other":
-            return "#94a3b8";
-
-        default:
-            return "#94a3b8";
-
+    if (
+        normalized ===
+        "industrial"
+    ) {
+        return "#ef4444";
     }
 
+    if (
+        normalized ===
+        "forest"
+    ) {
+        return "#22c55e";
+    }
+
+    if (
+        normalized ===
+        "natural"
+    ) {
+        return "#3b82f6";
+    }
+
+    if (
+        normalized ===
+        "agriculture"
+    ) {
+        return "#f59e0b";
+    }
+
+    if (
+        normalized ===
+        "persistent"
+    ) {
+        return "#a855f7";
+    }
+
+    return "#94a3b8";
 }
 
 
@@ -1148,247 +1724,186 @@ function getEventColor(type) {
 
 function getBadgeClass(type) {
 
-    switch (type) {
+    const normalized =
+        normalizeType(type);
 
-        case "Industrial":
-            return "badge-industrial";
-
-        case "Forest/Natural":
-            return "badge-forest";
-
-        case "Agricultural":
-            return "badge-agricultural";
-
-        default:
-            return "badge-other";
-
-    }
-
+    return `badge-${normalized}`;
 }
 
 
 /* =========================================================
-   TABLE
+   RENDER TABLE
 ========================================================= */
 
 function renderTable() {
 
-    const tbody =
+    const tableBody =
         document.getElementById(
-            "table-body"
+            "eventTableBody"
         );
 
-
-    tbody.innerHTML = "";
-
+    if (!tableBody) return;
 
     if (
         filteredEvents.length === 0
     ) {
 
-        tbody.innerHTML = `
-
+        tableBody.innerHTML = `
             <tr>
-
-                <td
-                    colspan="9"
-                    style="
-                        text-align:center;
-                        padding:40px;
-                        color:#64748b;
-                    "
-                >
-                    No thermal sources match
-                    the selected filters.
+                <td colspan="10">
+                    No events found.
                 </td>
-
             </tr>
-
         `;
 
         return;
-
     }
 
+    tableBody.innerHTML =
+        filteredEvents.map(
+            event => {
 
-    filteredEvents.forEach(
-        event => {
+                const alert =
+                    getAlertLevel(
+                        event.confidence
+                    );
 
-            const row =
-                document.createElement(
-                    "tr"
-                );
+                return `
+                    <tr>
 
+                        <td>
+                            ${escapeHTML(
+                                String(
+                                    event.event_id ||
+                                    "—"
+                                )
+                            )}
+                        </td>
 
-            const type =
-                normalizeType(
-                    event.predicted_event_type
-                );
+                        <td>
+                            <span
+                                class="event-badge ${getBadgeClass(
+                                    event.event_type
+                                )}"
+                            >
+                                ${escapeHTML(
+                                    event.event_type ||
+                                    "Unknown"
+                                )}
+                            </span>
+                        </td>
 
+                        <td>
+                            ${formatConfidence(
+                                event.confidence
+                            )}
+                        </td>
 
-            row.innerHTML = `
+                        <td>
+                            ${
+                                alert.level !==
+                                "LOW RISK"
+                                    ? `
+                                    <span
+                                        class="alert-badge ${alert.className}"
+                                    >
+                                        ${alert.icon}
+                                        ${alert.level}
+                                    </span>
+                                    `
+                                    : "—"
+                            }
+                        </td>
 
-                <td>
+                        <td>
+                            ${formatNumber(
+                                event.mean_frp
+                            )}
+                        </td>
 
-                    <span class="source-id">
+                        <td>
+                            ${formatNumber(
+                                event.max_frp
+                            )}
+                        </td>
 
-                        ${escapeHTML(
-                            event.source_id
-                        )}
+                        <td>
+                            ${formatDistance(
+                                event.distance_to_industry
+                            )}
+                        </td>
 
-                    </span>
+                        <td>
+                            ${formatDays(
+                                event.observation_span_days
+                            )}
+                        </td>
 
-                </td>
+                        <td>
+                            ${escapeHTML(
+                                event.landcover_class ||
+                                "—"
+                            )}
+                        </td>
 
+                        <td>
+                            <button
+                                class="table-view-button"
+                                data-event-id="${escapeAttribute(
+                                    String(
+                                        event.event_id
+                                    )
+                                )}"
+                            >
+                                View
+                            </button>
+                        </td>
 
-                <td>
+                    </tr>
+                `;
 
-                    <span
-                        class="
-                            event-badge
-                            ${getBadgeClass(type)}
-                        "
-                    >
+            }
+        ).join("");
 
-                        ${escapeHTML(type)}
+    tableBody
+        .querySelectorAll(
+            ".table-view-button"
+        )
+        .forEach(button => {
 
-                    </span>
-
-                </td>
-
-
-                <td>
-
-                    <span class="confidence-text">
-
-                        ${formatConfidence(
-                            event.confidence
-                        )}
-
-                    </span>
-
-                </td>
-
-
-                <td>
-
-                    ${formatCoordinate(
-                        event.latitude
-                    )}
-
-                </td>
-
-
-                <td>
-
-                    ${formatCoordinate(
-                        event.longitude
-                    )}
-
-                </td>
-
-
-                <td>
-
-                    ${escapeHTML(
-                        event.landcover
-                    )}
-
-                </td>
-
-
-                <td>
-
-                    ${formatNumber(
-                        event.mean_frp
-                    )}
-
-                </td>
-
-
-                <td>
-
-                    ${
-                        event.active_days !== null
-                            ? `${formatNumber(
-                                event.active_days
-                            )} days`
-                            : "—"
-                    }
-
-                </td>
-
-
-                <td>
-
-                    <button
-                        class="view-button"
-                        onclick="
-                            showEventById(
-                                '${escapeAttribute(
-                                    event.source_id
-                                )}'
-                            )
-                        "
-                    >
-                        VIEW
-                    </button>
-
-                </td>
-
-            `;
-
-
-            row.addEventListener(
+            button.addEventListener(
                 "click",
-                function (e) {
+                () => {
 
-                    if (
-                        e.target.tagName !==
-                        "BUTTON"
-                    ) {
-
-                        showEventDetails(
-                            event
-                        );
-
-                    }
+                    showEventById(
+                        button.dataset.eventId
+                    );
 
                 }
             );
 
-
-            tbody.appendChild(row);
-
-        }
-    );
+        });
 
 }
 
 
 /* =========================================================
-   EVENT DETAILS
+   SHOW EVENT BY ID
 ========================================================= */
 
-function showEventById(
-    sourceId
-) {
+function showEventById(id) {
 
     const event =
         allEvents.find(
-            e =>
-                e.source_id ===
-                sourceId
+            item =>
+                String(
+                    item.event_id
+                ) === String(id)
         );
 
+    if (!event) return;
 
-    if (event) {
-
-        showEventDetails(
-            event
-        );
-
-    }
+    showEventDetails(event);
 
 }
 
@@ -1399,240 +1914,209 @@ function showEventById(
 
 function showEventDetails(event) {
 
-    const container =
+    if (!event) return;
+
+    const modal =
         document.getElementById(
-            "details-content"
+            "eventModal"
         );
 
-
-    const sourceLabel =
+    const modalBody =
         document.getElementById(
-            "selected-source-label"
+            "eventModalBody"
         );
 
+    if (!modal || !modalBody) {
 
-    sourceLabel.textContent =
-        event.source_id;
-
-
-    const type =
-        normalizeType(
-            event.predicted_event_type
+        console.log(
+            "Event details:",
+            event
         );
 
+        return;
+    }
 
-    const color =
-        getEventColor(type);
+    const alert =
+        getAlertLevel(
+            event.confidence
+        );
 
+    modalBody.innerHTML = `
 
-    container.className =
-        "details-content";
+        <div class="event-detail-header">
 
+            <div>
 
-    container.innerHTML = `
-
-        <div class="detail-layout">
-
-
-            <div class="classification-box">
-
-                <div class="classification-label">
-
-                    AI EVENT CLASSIFICATION
-
+                <div class="event-detail-title">
+                    ${escapeHTML(
+                        event.event_type ||
+                        "Thermal Event"
+                    )}
                 </div>
 
-
-                <div
-                    class="classification-name"
-                    style="color:${color}"
-                >
-
-                    ${escapeHTML(type)}
-
-                </div>
-
-
-                <div class="classification-confidence">
-
-                    AI Confidence:
-
-                    <strong>
-
-                        ${formatConfidence(
-                            event.confidence
-                        )}
-
-                    </strong>
-
-                </div>
-
-
-                <div class="confidence-track">
-
-                    <div
-                        class="confidence-fill"
-                        style="
-                            width:${safeConfidence(
-                                event.confidence
-                            )}%;
-                            background:${color};
-                            box-shadow:
-                                0 0 12px ${color};
-                        "
-                    ></div>
-
+                <div class="event-detail-id">
+                    Event ID:
+                    ${escapeHTML(
+                        String(
+                            event.event_id ||
+                            "Unknown"
+                        )
+                    )}
                 </div>
 
             </div>
 
-
-            <div class="detail-grid">
-
-                ${detailItem(
-                    "Source ID",
-                    event.source_id
-                )}
-
-
-                ${detailItem(
-                    "Latitude",
-                    formatCoordinate(
-                        event.latitude
-                    )
-                )}
-
-
-                ${detailItem(
-                    "Longitude",
-                    formatCoordinate(
-                        event.longitude
-                    )
-                )}
-
-
-                ${detailItem(
-                    "Mean FRP",
-                    formatNumber(
-                        event.mean_frp
-                    )
-                )}
-
-
-                ${detailItem(
-                    "Maximum FRP",
-                    formatNumber(
-                        event.max_frp
-                    )
-                )}
-
-
-                ${detailItem(
-                    "Mean Brightness",
-                    formatNumber(
-                        event.mean_brightness
-                    )
-                )}
-
-
-                ${detailItem(
-                    "Maximum Brightness",
-                    formatNumber(
-                        event.max_brightness
-                    )
-                )}
-
-
-                ${detailItem(
-                    "Land Cover",
-                    event.landcover
-                )}
-
-
-                ${detailItem(
-                    "Nearest Facility",
-                    event.nearest_facility_type
-                )}
-
-
-                ${detailItem(
-                    "Distance to Industry",
-                    formatDistance(
-                        event.mean_distance_industry
-                    )
-                )}
-
-
-                ${detailItem(
-                    "Facilities ≤1 km",
-                    formatNumber(
-                        event.facilities_1km
-                    )
-                )}
-
-
-                ${detailItem(
-                    "Facilities ≤5 km",
-                    formatNumber(
-                        event.facilities_5km
-                    )
-                )}
-
-
-                ${detailItem(
-                    "Total Detections",
-                    formatNumber(
-                        event.total_detections
-                    )
-                )}
-
-
-                ${detailItem(
-                    "Active Days",
-                    formatNumber(
-                        event.active_days
-                    )
-                )}
-
-
-                ${detailItem(
-                    "Observation Span",
-                    formatDays(
-                        event.observation_span_days
-                    )
-                )}
-
-
-                ${detailItem(
-                    "Recurrence Rate",
-                    formatNumber(
-                        event.recurrence_rate
-                    )
-                )}
-
-
-                ${detailItem(
-                    "Temporal Regularity",
-                    formatNumber(
-                        event.temporal_regularity
-                    )
-                )}
-
+            <div
+                class="event-alert-status ${alert.className}"
+            >
+                ${alert.icon}
+                ${alert.level}
             </div>
+
+        </div>
+
+        <div class="event-detail-grid">
+
+            ${detailItem(
+                "Confidence",
+                formatConfidence(
+                    event.confidence
+                )
+            )}
+
+            ${detailItem(
+                "Latitude",
+                formatCoordinate(
+                    event.latitude
+                )
+            )}
+
+            ${detailItem(
+                "Longitude",
+                formatCoordinate(
+                    event.longitude
+                )
+            )}
+
+            ${detailItem(
+                "Mean FRP",
+                `${formatNumber(
+                    event.mean_frp
+                )} MW`
+            )}
+
+            ${detailItem(
+                "Maximum FRP",
+                `${formatNumber(
+                    event.max_frp
+                )} MW`
+            )}
+
+            ${detailItem(
+                "Mean Brightness",
+                `${formatNumber(
+                    event.mean_brightness
+                )} K`
+            )}
+
+            ${detailItem(
+                "Maximum Brightness",
+                `${formatNumber(
+                    event.max_brightness
+                )} K`
+            )}
+
+            ${detailItem(
+                "Distance to Industry",
+                formatDistance(
+                    event.distance_to_industry
+                )
+            )}
+
+            ${detailItem(
+                "Minimum Industry Distance",
+                formatDistance(
+                    event.min_distance_to_industry
+                )
+            )}
+
+            ${detailItem(
+                "Facilities within 1 km",
+                formatNumber(
+                    event.facilities_1km
+                )
+            )}
+
+            ${detailItem(
+                "Facilities within 5 km",
+                formatNumber(
+                    event.facilities_5km
+                )
+            )}
+
+            ${detailItem(
+                "Industrial Land Ratio",
+                formatNumber(
+                    event.industrial_land_ratio
+                )
+            )}
+
+            ${detailItem(
+                "Nearest Facility",
+                event.nearest_facility_type
+            )}
+
+            ${detailItem(
+                "Land Cover",
+                event.landcover_class
+            )}
+
+            ${detailItem(
+                "Total Detections",
+                formatNumber(
+                    event.total_detections
+                )
+            )}
+
+            ${detailItem(
+                "Active Days",
+                formatNumber(
+                    event.active_days
+                )
+            )}
+
+            ${detailItem(
+                "Observation Span",
+                formatDays(
+                    event.observation_span_days
+                )
+            )}
+
+            ${detailItem(
+                "Recurrence Rate",
+                formatNumber(
+                    event.recurrence_rate
+                )
+            )}
+
+            ${detailItem(
+                "Observation Days",
+                formatNumber(
+                    event.observation_days
+                )
+            )}
 
         </div>
 
     `;
 
+    modal.classList.remove(
+        "hidden"
+    );
 
-    document
-        .querySelector(
-            ".details-panel"
-        )
-        .scrollIntoView({
-            behavior: "smooth",
-            block: "start"
-        });
+    modal.classList.add(
+        "active"
+    );
 
 }
 
@@ -1647,234 +2131,234 @@ function detailItem(
 ) {
 
     return `
-
         <div class="detail-item">
 
-            <span>
-                ${escapeHTML(label)}
-            </span>
-
-            <strong>
-
+            <div class="detail-label">
                 ${escapeHTML(
-                    value === null ||
-                    value === undefined ||
-                    value === ""
-                        ? "—"
-                        : String(value)
+                    String(label)
                 )}
+            </div>
 
-            </strong>
+            <div class="detail-value">
+                ${escapeHTML(
+                    String(
+                        value === undefined ||
+                        value === null ||
+                        value === ""
+                            ? "—"
+                            : value
+                    )
+                )}
+            </div>
 
         </div>
-
     `;
-
 }
 
 
 /* =========================================================
-   FORMATTING
+   FORMAT NUMBER
 ========================================================= */
 
 function formatNumber(value) {
 
     if (
-        value === null ||
         value === undefined ||
-        !Number.isFinite(value)
-    ) {
-
-        return "—";
-
-    }
-
-
-    return value.toLocaleString(
-        undefined,
-        {
-            maximumFractionDigits: 2
-        }
-    );
-
-}
-
-
-function formatDistance(value) {
-
-    if (
         value === null ||
-        value === undefined ||
-        !Number.isFinite(value)
-    ) {
-
-        return "—";
-
-    }
-
-
-    return `${value.toFixed(2)} km`;
-
-}
-
-
-function formatDays(value) {
-
-    if (
-        value === null ||
-        value === undefined ||
-        !Number.isFinite(value)
-    ) {
-
-        return "—";
-
-    }
-
-
-    return `${value.toFixed(2)} days`;
-
-}
-
-
-function formatCoordinate(value) {
-
-    if (
-        value === null ||
-        value === undefined ||
-        !Number.isFinite(value)
-    ) {
-
-        return "—";
-
-    }
-
-
-    return value.toFixed(5);
-
-}
-
-
-function formatConfidence(value) {
-
-    if (
-        value === null ||
-        value === undefined ||
-        !Number.isFinite(value)
-    ) {
-
-        return "—";
-
-    }
-
-
-    let confidence = value;
-
-
-    if (
-        confidence >= 0 &&
-        confidence <= 1
-    ) {
-
-        confidence *= 100;
-
-    }
-
-
-    return `${confidence.toFixed(1)}%`;
-
-}
-
-
-function safeConfidence(value) {
-
-    if (
-        value === null ||
-        !Number.isFinite(value)
-    ) {
-
-        return 0;
-
-    }
-
-
-    let confidence =
-        Number(value);
-
-
-    if (
-        confidence >= 0 &&
-        confidence <= 1
-    ) {
-
-        confidence *= 100;
-
-    }
-
-
-    return Math.max(
-        0,
-        Math.min(
-            100,
-            confidence
+        !Number.isFinite(
+            Number(value)
         )
-    );
+    ) {
+        return "—";
+    }
 
+    return Number(value)
+        .toLocaleString(
+            undefined,
+            {
+                maximumFractionDigits: 2
+            }
+        );
 }
 
 
 /* =========================================================
-   SECURITY
+   FORMAT DISTANCE
+========================================================= */
+
+function formatDistance(value) {
+
+    if (
+        !Number.isFinite(
+            Number(value)
+        )
+    ) {
+        return "—";
+    }
+
+    return `${formatNumber(value)} km`;
+}
+
+
+/* =========================================================
+   FORMAT DAYS
+========================================================= */
+
+function formatDays(value) {
+
+    if (
+        !Number.isFinite(
+            Number(value)
+        )
+    ) {
+        return "—";
+    }
+
+    return `${formatNumber(value)} days`;
+}
+
+
+/* =========================================================
+   FORMAT COORDINATE
+========================================================= */
+
+function formatCoordinate(value) {
+
+    if (
+        !Number.isFinite(
+            Number(value)
+        )
+    ) {
+        return "—";
+    }
+
+    return Number(value)
+        .toFixed(5);
+}
+
+
+/* =========================================================
+   FORMAT CONFIDENCE
+========================================================= */
+
+function formatConfidence(value) {
+
+    if (
+        !Number.isFinite(
+            Number(value)
+        )
+    ) {
+        return "—";
+    }
+
+    let score =
+        Number(value);
+
+    if (
+        score >= 0 &&
+        score <= 1
+    ) {
+        score *= 100;
+    }
+
+    return `${score.toFixed(1)}%`;
+}
+
+
+/* =========================================================
+   SAFE CONFIDENCE
+========================================================= */
+
+function safeConfidence(event) {
+
+    if (
+        typeof event ===
+        "number"
+    ) {
+
+        let score =
+            Number(event);
+
+        if (
+            score >= 0 &&
+            score <= 1
+        ) {
+            score *= 100;
+        }
+
+        return score;
+    }
+
+    const value =
+        getValue(
+            event || {},
+            [
+                "confidence",
+                "Confidence",
+                "confidence_score",
+                "prediction_confidence",
+                "probability",
+                "score"
+            ]
+        );
+
+    let score =
+        parseNumber(value);
+
+    if (
+        !Number.isFinite(score)
+    ) {
+        return 0;
+    }
+
+    if (
+        score >= 0 &&
+        score <= 1
+    ) {
+        score *= 100;
+    }
+
+    return score;
+}
+
+
+/* =========================================================
+   ESCAPE HTML
 ========================================================= */
 
 function escapeHTML(value) {
 
-    if (
-        value === null ||
-        value === undefined
-    ) {
-
-        return "";
-
-    }
-
-
     return String(value)
-        .replaceAll(
-            "&",
+        .replace(
+            /&/g,
             "&amp;"
         )
-        .replaceAll(
-            "<",
+        .replace(
+            /</g,
             "&lt;"
         )
-        .replaceAll(
-            ">",
+        .replace(
+            />/g,
             "&gt;"
         )
-        .replaceAll(
-            '"',
+        .replace(
+            /"/g,
             "&quot;"
         )
-        .replaceAll(
-            "'",
+        .replace(
+            /'/g,
             "&#039;"
         );
-
 }
 
 
+/* =========================================================
+   ESCAPE ATTRIBUTE
+========================================================= */
+
 function escapeAttribute(value) {
 
-    return String(value)
-        .replaceAll(
-            "\\",
-            "\\\\"
-        )
-        .replaceAll(
-            "'",
-            "\\'"
-        );
-
+    return escapeHTML(value);
 }
 
 
@@ -1884,88 +2368,43 @@ function escapeAttribute(value) {
 
 function resetFilters() {
 
-    document.getElementById(
-        "type-filter"
-    ).value = "ALL";
-
-
-    document.getElementById(
-        "search-input"
-    ).value = "";
-
-
-    document.getElementById(
-        "landcover-filter"
-    ).value = "ALL";
-
-
-    document.getElementById(
-        "confidence-filter"
-    ).value = "0";
-
-
-    filteredEvents =
-        [...allEvents];
-
-
-    updateDashboard();
-
-    renderMarkers();
-
-    renderTable();
-
-
-    document.getElementById(
-        "selected-source-label"
-    ).textContent =
-        "NO SOURCE SELECTED";
-
-
-    document.getElementById(
-        "details-content"
-    ).innerHTML = `
-
-        <div class="details-empty">
-
-            <i class="fa-solid fa-crosshairs"></i>
-
-            <h3>
-                Select a thermal source
-            </h3>
-
-            <p>
-                Click a marker on the map or select
-                an event from the table to view
-                AI classification and source-level
-                information.
-            </p>
-
-        </div>
-
-    `;
-
-
-    if (
-        allEvents.length > 0
-    ) {
-
-        map.fitBounds(
-            allEvents.map(
-                event => [
-                    event.latitude,
-                    event.longitude
-                ]
-            ),
-            {
-                padding: [
-                    30,
-                    30
-                ],
-                maxZoom: 10
-            }
+    const typeFilter =
+        document.getElementById(
+            "eventTypeFilter"
         );
 
+    const confidenceFilter =
+        document.getElementById(
+            "confidenceFilter"
+        );
+
+    const landcoverFilter =
+        document.getElementById(
+            "landcoverFilter"
+        );
+
+    const searchInput =
+        document.getElementById(
+            "searchInput"
+        );
+
+    if (typeFilter) {
+        typeFilter.value = "all";
     }
+
+    if (confidenceFilter) {
+        confidenceFilter.value = "0";
+    }
+
+    if (landcoverFilter) {
+        landcoverFilter.value = "all";
+    }
+
+    if (searchInput) {
+        searchInput.value = "";
+    }
+
+    applyFilters();
 
 }
 
@@ -1974,61 +2413,27 @@ function resetFilters() {
    DATA ERROR
 ========================================================= */
 
-function showDataError() {
-
-    const tbody =
-        document.getElementById(
-            "table-body"
-        );
-
-
-    tbody.innerHTML = `
-
-        <tr>
-
-            <td
-                colspan="9"
-                style="
-                    text-align:center;
-                    padding:45px;
-                    color:#ff7b83;
-                "
-            >
-
-                <i
-                    class="fa-solid
-                    fa-triangle-exclamation"
-                    style="
-                        font-size:22px;
-                        display:block;
-                        margin-bottom:10px;
-                    "
-                ></i>
-
-                Could not load
-                <strong>
-                    static/predictions.csv
-                </strong>
-
-                <br>
-
-                <small style="color:#64748b">
-
-                    Make sure the CSV exists inside
-                    the static folder.
-
-                </small>
-
-            </td>
-
-        </tr>
-
-    `;
-
+function showDataError(message) {
 
     console.error(
-        "Prediction CSV could not be loaded."
+        message
     );
+
+    const errorElement =
+        document.getElementById(
+            "dataError"
+        );
+
+    if (errorElement) {
+
+        errorElement.textContent =
+            message;
+
+        errorElement.classList.remove(
+            "hidden"
+        );
+
+    }
 
 }
 
@@ -2039,290 +2444,335 @@ function showDataError() {
 
 function setupEventListeners() {
 
-    document
-        .getElementById(
-            "type-filter"
-        )
-        .addEventListener(
+    const alertButton =
+        document.getElementById(
+            "alertButton"
+        );
+
+    if (alertButton) {
+
+        alertButton.addEventListener(
+            "click",
+            toggleAlertCenter
+        );
+
+    }
+
+
+    const closeAlertButton =
+        document.getElementById(
+            "closeAlertCenter"
+        );
+
+    if (closeAlertButton) {
+
+        closeAlertButton.addEventListener(
+            "click",
+            toggleAlertCenter
+        );
+
+    }
+
+
+    const resetButton =
+        document.getElementById(
+            "resetFilters"
+        );
+
+    if (resetButton) {
+
+        resetButton.addEventListener(
+            "click",
+            resetFilters
+        );
+
+    }
+
+
+    const typeFilter =
+        document.getElementById(
+            "eventTypeFilter"
+        );
+
+    if (typeFilter) {
+
+        typeFilter.addEventListener(
             "change",
             applyFilters
         );
 
+    }
 
-    document
-        .getElementById(
-            "landcover-filter"
-        )
-        .addEventListener(
+
+    const landcoverFilter =
+        document.getElementById(
+            "landcoverFilter"
+        );
+
+    if (landcoverFilter) {
+
+        landcoverFilter.addEventListener(
             "change",
             applyFilters
         );
 
+    }
 
-    document
-        .getElementById(
-            "confidence-filter"
-        )
-        .addEventListener(
-            "change",
-            applyFilters
+
+    const confidenceFilter =
+        document.getElementById(
+            "confidenceFilter"
         );
 
+    if (confidenceFilter) {
 
-    document
-        .getElementById(
-            "search-input"
-        )
-        .addEventListener(
+        confidenceFilter.addEventListener(
             "input",
             applyFilters
         );
 
+    }
 
-    document
-        .getElementById(
-            "reset-btn"
-        )
-        .addEventListener(
-            "click",
-            resetFilters
+
+    const searchInput =
+        document.getElementById(
+            "searchInput"
         );
+
+    if (searchInput) {
+
+        searchInput.addEventListener(
+            "input",
+            applyFilters
+        );
+
+    }
+
+
+    const modal =
+        document.getElementById(
+            "eventModal"
+        );
+
+    const modalClose =
+        document.getElementById(
+            "closeEventModal"
+        );
+
+    if (modalClose) {
+
+        modalClose.addEventListener(
+            "click",
+            () => {
+
+                if (modal) {
+
+                    modal.classList.add(
+                        "hidden"
+                    );
+
+                    modal.classList.remove(
+                        "active"
+                    );
+
+                }
+
+            }
+        );
+
+    }
+
+    if (modal) {
+
+        modal.addEventListener(
+            "click",
+            event => {
+
+                if (
+                    event.target ===
+                    modal
+                ) {
+
+                    modal.classList.add(
+                        "hidden"
+                    );
+
+                    modal.classList.remove(
+                        "active"
+                    );
+
+                }
+
+            }
+        );
+
+    }
 
 }
 
 
 /* =========================================================
-   AI PREDICTION FORM
+   PREDICTION FORM
 ========================================================= */
 
 function setupPredictionForm() {
 
     const form =
         document.getElementById(
-            "prediction-form"
+            "predictionForm"
         );
-
 
     if (!form) return;
 
-
     form.addEventListener(
         "submit",
-        async function (event) {
-
-            event.preventDefault();
-
-
-            await sendPrediction();
-
-        }
+        sendPrediction
     );
 
 }
 
 
 /* =========================================================
-   SEND PREDICTION TO BACKEND
+   SEND PREDICTION
 ========================================================= */
 
-async function sendPrediction() {
+async function sendPrediction(
+    event
+) {
 
-    const button =
-        document.getElementById(
-            "predict-button"
+    event.preventDefault();
+
+    const form =
+        event.target;
+
+    const submitButton =
+        form.querySelector(
+            'button[type="submit"]'
         );
 
+    if (submitButton) {
 
-    const originalText =
-        button.innerHTML;
+        submitButton.disabled =
+            true;
 
+        submitButton.textContent =
+            "ANALYZING...";
 
-    button.disabled = true;
-
-
-    button.innerHTML = `
-
-        <i class="fa-solid fa-spinner fa-spin"></i>
-
-        ANALYZING...
-
-    `;
-
-
-    const inputData = {
-
-        latitude:
-            Number(
-                document.getElementById(
-                    "latitude"
-                ).value
-            ),
-
-        longitude:
-            Number(
-                document.getElementById(
-                    "longitude"
-                ).value
-            ),
-
-        mean_frp:
-            Number(
-                document.getElementById(
-                    "mean_frp"
-                ).value
-            ),
-
-        max_frp:
-            Number(
-                document.getElementById(
-                    "max_frp"
-                ).value
-            ),
-
-        mean_brightness:
-            Number(
-                document.getElementById(
-                    "mean_brightness"
-                ).value
-            ),
-
-        max_brightness:
-            Number(
-                document.getElementById(
-                    "max_brightness"
-                ).value
-            ),
-
-        nearest_facility_type:
-            document.getElementById(
-                "facility_type"
-            ).value,
-
-        distance_to_industry_km:
-            Number(
-                document.getElementById(
-                    "distance_industry"
-                ).value
-            ),
-
-        industrial_facilities_1km:
-            Number(
-                document.getElementById(
-                    "facilities_1km"
-                ).value
-            ),
-
-        industrial_facilities_5km:
-            Number(
-                document.getElementById(
-                    "facilities_5km"
-                ).value
-            ),
-
-        total_detections:
-            Number(
-                document.getElementById(
-                    "total_detections"
-                ).value
-            ),
-
-        active_days:
-            Number(
-                document.getElementById(
-                    "active_days"
-                ).value
-            ),
-
-        observation_span_days:
-            Number(
-                document.getElementById(
-                    "observation_span"
-                ).value
-            )
-
-    };
-
-
-    console.log(
-        "Sending prediction:",
-        inputData
-    );
-
+    }
 
     try {
 
-        const response =
-            await fetch(
-                BACKEND_URL,
-                {
+        const formData =
+            new FormData(form);
 
-                    method: "POST",
+        const payload = {};
 
-                    headers: {
-                        "Content-Type":
-                            "application/json"
-                    },
+        formData.forEach(
+            (value, key) => {
 
-                    body:
-                        JSON.stringify(
-                            inputData
-                        )
+                payload[key] =
+                    value;
+
+            }
+        );
+
+        /*
+           Try the backend endpoint.
+        */
+
+        const endpoints = [
+            "/predict",
+            "http://localhost:8000/predict",
+            "http://127.0.0.1:8000/predict"
+        ];
+
+        let response = null;
+
+        for (
+            const endpoint of endpoints
+        ) {
+
+            try {
+
+                const result =
+                    await fetch(
+                        endpoint,
+                        {
+                            method: "POST",
+
+                            headers: {
+                                "Content-Type":
+                                    "application/json"
+                            },
+
+                            body:
+                                JSON.stringify(
+                                    payload
+                                )
+                        }
+                    );
+
+                if (
+                    result.ok
+                ) {
+
+                    response =
+                        result;
+
+                    break;
 
                 }
-            );
 
+            } catch (
+                endpointError
+            ) {
 
-        if (!response.ok) {
+                console.warn(
+                    "Prediction endpoint unavailable:",
+                    endpoint
+                );
+
+            }
+
+        }
+
+        if (!response) {
 
             throw new Error(
-                `Backend returned ${response.status}`
+                "Prediction backend is offline."
             );
 
         }
 
-
-        const result =
+        const data =
             await response.json();
 
-
-        console.log(
-            "Prediction result:",
-            result
-        );
-
-
         displayPredictionResult(
-            result
+            data
         );
 
-    }
-
-    catch (error) {
+    } catch (error) {
 
         console.error(
-            "Prediction error:",
             error
         );
 
-
-        /*
-           For now this shows a backend connection
-           message instead of pretending that a prediction
-           was made.
-        */
-
         showPredictionError(
-            "Backend connection failed. Make sure your AI backend is running on http://127.0.0.1:8000"
+            error.message ||
+            "Unable to process prediction."
         );
 
-    }
+    } finally {
 
-    finally {
+        if (submitButton) {
 
-        button.disabled = false;
+            submitButton.disabled =
+                false;
 
-        button.innerHTML =
-            originalText;
+            submitButton.textContent =
+                "ANALYZE EVENT";
+
+        }
 
     }
 
@@ -2330,151 +2780,139 @@ async function sendPrediction() {
 
 
 /* =========================================================
-   DISPLAY PREDICTION
+   DISPLAY PREDICTION RESULT
 ========================================================= */
 
 function displayPredictionResult(
-    result
+    data
 ) {
 
     const resultBox =
         document.getElementById(
-            "prediction-result"
+            "predictionResult"
         );
 
+    if (!resultBox) return;
 
     const resultType =
         document.getElementById(
             "result-type"
         );
 
-
     const resultMessage =
         document.getElementById(
             "result-message"
         );
 
-
     const confidenceValue =
         document.getElementById(
-            "result-confidence-value"
+            "confidence-value"
         );
-
 
     const confidenceFill =
         document.getElementById(
-            "result-confidence-fill"
+            "confidence-fill"
         );
-
 
     const resultIcon =
         document.getElementById(
             "result-icon"
         );
 
-
-    /*
-       Supports common backend field names.
-    */
-
     const prediction =
-        result.predicted_event_type ||
-        result.event_type ||
-        result.prediction ||
-        result.classification ||
-        "Other";
-
+        data.prediction ||
+        data.event_type ||
+        data.classification ||
+        data.label ||
+        "UNKNOWN";
 
     let confidence =
-        result.confidence_pct ??
-        result.confidence ??
-        result.prediction_confidence ??
-        0;
-
-
-    confidence =
-        Number(confidence);
-
+        safeConfidence(
+            data
+        );
 
     if (
-        confidence >= 0 &&
-        confidence <= 1
+        data.confidence !==
+        undefined
     ) {
 
-        confidence *= 100;
+        confidence =
+            parseNumber(
+                data.confidence
+            );
+
+        if (
+            confidence >= 0 &&
+            confidence <= 1
+        ) {
+            confidence *= 100;
+        }
 
     }
 
+    if (resultType) {
 
-    confidence =
-        Math.max(
-            0,
-            Math.min(
-                100,
+        resultType.textContent =
+            prediction;
+
+    }
+
+    if (resultMessage) {
+
+        resultMessage.textContent =
+            getPredictionMessage(
+                prediction,
                 confidence
-            )
+            );
+
+    }
+
+    if (confidenceValue) {
+
+        confidenceValue.textContent =
+            formatConfidence(
+                confidence
+            );
+
+    }
+
+    if (confidenceFill) {
+
+        confidenceFill.style.width =
+            `${Math.max(
+                0,
+                Math.min(
+                    100,
+                    confidence
+                )
+            )}%`;
+
+    }
+
+    const alert =
+        getAlertLevel(
+            confidence
         );
 
+    if (resultIcon) {
 
-    const normalizedPrediction =
-        normalizeType(
-            prediction
-        );
+        resultIcon.textContent =
+            alert.icon;
 
-
-    const color =
-        getEventColor(
-            normalizedPrediction
-        );
-
-
-    resultType.textContent =
-        normalizedPrediction;
-
-
-    confidenceValue.textContent =
-        `${confidence.toFixed(1)}%`;
-
-
-    confidenceFill.style.width =
-        `${confidence}%`;
-
-
-    confidenceFill.style.background =
-        color;
-
-
-    confidenceFill.style.boxShadow =
-        `0 0 15px ${color}`;
-
-
-    resultIcon.style.color =
-        color;
-
-
-    resultIcon.style.borderColor =
-        color;
-
-
-    resultIcon.style.background =
-        `${color}15`;
-
-
-    resultMessage.textContent =
-        getPredictionMessage(
-            normalizedPrediction
-        );
-
+    }
 
     resultBox.classList.remove(
         "hidden"
     );
 
+    resultBox.classList.add(
+        "active"
+    );
 
-    resultBox.scrollIntoView({
-        behavior: "smooth",
-        block: "center"
-    });
+    addPredictionAlert(
+        prediction,
+        confidence
+    );
 
 }
 
@@ -2484,29 +2922,18 @@ function displayPredictionResult(
 ========================================================= */
 
 function getPredictionMessage(
-    type
+    prediction,
+    confidence
 ) {
 
-    switch (type) {
+    const alert =
+        getAlertLevel(
+            confidence
+        );
 
-        case "Industrial":
-
-            return "The detected thermal source shows characteristics associated with industrial activity.";
-
-        case "Forest/Natural":
-
-            return "The thermal source is more consistent with forest or other natural fire activity.";
-
-        case "Agricultural":
-
-            return "The thermal source shows characteristics associated with agricultural burning.";
-
-        default:
-
-            return "The thermal source does not strongly match the other event categories.";
-
-    }
-
+    return `${prediction} detected with ${formatConfidence(
+        confidence
+    )} confidence. ${alert.message}.`;
 }
 
 
@@ -2520,63 +2947,70 @@ function showPredictionError(
 
     const resultBox =
         document.getElementById(
-            "prediction-result"
+            "predictionResult"
         );
 
+    if (!resultBox) return;
 
     const resultType =
         document.getElementById(
             "result-type"
         );
 
-
     const resultMessage =
         document.getElementById(
             "result-message"
         );
 
-
     const confidenceValue =
         document.getElementById(
-            "result-confidence-value"
+            "confidence-value"
         );
-
 
     const confidenceFill =
         document.getElementById(
-            "result-confidence-fill"
+            "confidence-fill"
         );
-
 
     const resultIcon =
         document.getElementById(
             "result-icon"
         );
 
+    if (resultType) {
 
-    resultType.textContent =
-        "BACKEND OFFLINE";
+        resultType.textContent =
+            "BACKEND OFFLINE";
 
+    }
 
-    resultMessage.textContent =
-        message;
+    if (resultMessage) {
 
+        resultMessage.textContent =
+            message;
 
-    confidenceValue.textContent =
-        "—";
+    }
 
+    if (confidenceValue) {
 
-    confidenceFill.style.width =
-        "0%";
+        confidenceValue.textContent =
+            "—";
 
+    }
 
-    resultIcon.style.color =
-        "#f59e0b";
+    if (confidenceFill) {
 
+        confidenceFill.style.width =
+            "0%";
 
-    resultIcon.style.borderColor =
-        "#f59e0b";
+    }
 
+    if (resultIcon) {
+
+        resultIcon.textContent =
+            "⚠️";
+
+    }
 
     resultBox.classList.remove(
         "hidden"
