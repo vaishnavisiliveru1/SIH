@@ -1,10 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>AI Thermal Intelligence | FIRMS • OSM • Satellite</title>
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>
+    AI Thermal Intelligence | FIRMS • GIS • Satellite
+  </title>
+
 
   <!-- Bootstrap -->
   <link
@@ -12,11 +21,13 @@
     rel="stylesheet"
   >
 
+
   <!-- Font Awesome -->
   <link
     rel="stylesheet"
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
   >
+
 
   <!-- Leaflet -->
   <link
@@ -24,11 +35,18 @@
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
   >
 
+
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="style.css">
+  <link
+    rel="stylesheet"
+    href="style.css"
+  >
+
 </head>
 
+
 <body>
+
 
 <!-- =========================================================
      HEADER
@@ -39,10 +57,14 @@
   <div class="header-left">
 
     <div class="brand-icon">
+
       <i class="fa-solid fa-satellite"></i>
+
     </div>
 
+
     <div>
+
       <h1>
         AI-BASED DETECTION & CLASSIFICATION
       </h1>
@@ -51,41 +73,56 @@
         Industrial Fires & Persistent Thermal Sources
       </p>
 
+
       <div class="data-sources">
+
         <span>
-          <i class="fa-solid fa-fire"></i> NASA FIRMS
+          <i class="fa-solid fa-fire"></i>
+          NASA FIRMS
         </span>
 
         <span>
-          <i class="fa-solid fa-industry"></i> OSM / GIS
+          <i class="fa-solid fa-industry"></i>
+          OSM / GIS
         </span>
 
         <span>
-          <i class="fa-solid fa-earth-americas"></i> Satellite Data
+          <i class="fa-solid fa-earth-americas"></i>
+          Satellite Data
         </span>
 
         <span>
-          <i class="fa-solid fa-brain"></i> AI / ML
+          <i class="fa-solid fa-brain"></i>
+          AI / ML
         </span>
+
       </div>
+
     </div>
 
   </div>
 
+
   <div class="system-status">
 
     <div class="status-indicator">
+
       <span class="pulse"></span>
+
       SYSTEM ONLINE
+
     </div>
 
     <div class="status-sub">
+
       GEOSPATIAL INTELLIGENCE PLATFORM
+
     </div>
 
   </div>
 
 </header>
+
 
 
 <!-- =========================================================
@@ -94,438 +131,1467 @@
 
 <main class="dashboard-container">
 
-  <!-- =====================================================
-       STATISTICS
-  ====================================================== -->
 
-  <section class="stats-grid">
+<!-- =========================================================
+     AI EVENT INPUT
+========================================================= -->
 
-    <div class="stat-card total-card">
-      <div class="stat-icon">
-        <i class="fa-solid fa-fire"></i>
-      </div>
+<section class="details-panel">
 
-      <div>
-        <span class="stat-label">
-          TOTAL THERMAL SOURCES
-        </span>
+  <div class="panel-header">
 
-        <strong id="total-sources">
-          0
-        </strong>
-      </div>
-    </div>
+    <div>
 
-
-    <div class="stat-card industrial-card">
-      <div class="stat-icon">
-        <i class="fa-solid fa-industry"></i>
-      </div>
-
-      <div>
-        <span class="stat-label">
-          INDUSTRIAL
-        </span>
-
-        <strong id="industrial-count">
-          0
-        </strong>
-      </div>
-    </div>
-
-
-    <div class="stat-card forest-card">
-      <div class="stat-icon">
-        <i class="fa-solid fa-tree"></i>
-      </div>
-
-      <div>
-        <span class="stat-label">
-          FOREST / NATURAL
-        </span>
-
-        <strong id="forest-count">
-          0
-        </strong>
-      </div>
-    </div>
-
-
-    <div class="stat-card agricultural-card">
-      <div class="stat-icon">
-        <i class="fa-solid fa-wheat-awn"></i>
-      </div>
-
-      <div>
-        <span class="stat-label">
-          AGRICULTURAL
-        </span>
-
-        <strong id="agricultural-count">
-          0
-        </strong>
-      </div>
-    </div>
-
-
-    <div class="stat-card other-card">
-      <div class="stat-icon">
-        <i class="fa-solid fa-circle-question"></i>
-      </div>
-
-      <div>
-        <span class="stat-label">
-          OTHER
-        </span>
-
-        <strong id="other-count">
-          0
-        </strong>
-      </div>
-    </div>
-
-  </section>
-
-
-  <!-- =====================================================
-       MAP + CONTROL PANEL
-  ====================================================== -->
-
-  <section class="main-grid">
-
-    <!-- MAP -->
-
-    <div class="map-panel">
-
-      <div class="panel-header">
-
-        <div>
-          <span class="panel-kicker">
-            GEOSPATIAL MONITORING
-          </span>
-
-          <h2>
-            Thermal Event Map
-          </h2>
-        </div>
-
-        <div class="map-status">
-          <span class="live-dot"></span>
-          LIVE DATA VIEW
-        </div>
-
-      </div>
-
-      <div class="map-wrapper">
-
-        <div id="map"></div>
-
-        <!-- MAP LEGEND -->
-
-        <div class="map-legend">
-
-          <div class="legend-heading">
-            EVENT CLASSIFICATION
-          </div>
-
-          <div class="legend-row">
-            <span class="legend-dot industrial"></span>
-            Industrial
-          </div>
-
-          <div class="legend-row">
-            <span class="legend-dot forest"></span>
-            Forest / Natural
-          </div>
-
-          <div class="legend-row">
-            <span class="legend-dot agricultural"></span>
-            Agricultural
-          </div>
-
-          <div class="legend-row">
-            <span class="legend-dot other"></span>
-            Other
-          </div>
-
-        </div>
-
-      </div>
-
-    </div>
-
-
-    <!-- CONTROL PANEL -->
-
-    <aside class="control-panel">
-
-      <div class="panel-header">
-        <div>
-          <span class="panel-kicker">
-            ANALYSIS CONTROLS
-          </span>
-
-          <h2>
-            Filters
-          </h2>
-        </div>
-
-        <i class="fa-solid fa-sliders"></i>
-      </div>
-
-
-      <div class="filter-group">
-
-        <label>
-          <i class="fa-solid fa-layer-group"></i>
-          EVENT TYPE
-        </label>
-
-        <select id="type-filter">
-          <option value="ALL">
-            All Event Types
-          </option>
-
-          <option value="Industrial">
-            Industrial
-          </option>
-
-          <option value="Forest/Natural">
-            Forest / Natural
-          </option>
-
-          <option value="Agricultural">
-            Agricultural
-          </option>
-
-          <option value="Other">
-            Other
-          </option>
-        </select>
-
-      </div>
-
-
-      <div class="filter-group">
-
-        <label>
-          <i class="fa-solid fa-magnifying-glass"></i>
-          SOURCE ID
-        </label>
-
-        <input
-          type="text"
-          id="search-input"
-          placeholder="SOURCE_0001"
-        >
-
-      </div>
-
-
-      <div class="filter-group">
-
-        <label>
-          <i class="fa-solid fa-map-location-dot"></i>
-          LAND COVER
-        </label>
-
-        <select id="landcover-filter">
-
-          <option value="ALL">
-            All Land Covers
-          </option>
-
-        </select>
-
-      </div>
-
-
-      <div class="filter-group">
-
-        <label>
-          <i class="fa-solid fa-chart-line"></i>
-          MINIMUM CONFIDENCE
-        </label>
-
-        <select id="confidence-filter">
-
-          <option value="0">
-            Any Confidence
-          </option>
-
-          <option value="50">
-            ≥ 50%
-          </option>
-
-          <option value="70">
-            ≥ 70%
-          </option>
-
-          <option value="80">
-            ≥ 80%
-          </option>
-
-          <option value="90">
-            ≥ 90%
-          </option>
-
-        </select>
-
-      </div>
-
-
-      <button id="reset-btn" class="reset-button">
-
-        <i class="fa-solid fa-rotate-left"></i>
-
-        RESET FILTERS
-
-      </button>
-
-
-      <div class="system-info">
-
-        <div class="system-info-title">
-          <i class="fa-solid fa-circle-info"></i>
-          DATA PIPELINE
-        </div>
-
-        <div class="pipeline-step">
-          <span>01</span>
-          NASA FIRMS Thermal Detection
-        </div>
-
-        <div class="pipeline-step">
-          <span>02</span>
-          GIS / Industrial Context
-        </div>
-
-        <div class="pipeline-step">
-          <span>03</span>
-          Temporal Analysis
-        </div>
-
-        <div class="pipeline-step">
-          <span>04</span>
-          AI Event Classification
-        </div>
-
-      </div>
-
-    </aside>
-
-  </section>
-
-
-  <!-- =====================================================
-       SELECTED EVENT
-  ====================================================== -->
-
-  <section class="details-panel">
-
-    <div class="panel-header">
-
-      <div>
-        <span class="panel-kicker">
-          SOURCE ANALYSIS
-        </span>
-
-        <h2>
-          Selected Thermal Source
-        </h2>
-      </div>
-
-      <span id="selected-source-label" class="source-label">
-        NO SOURCE SELECTED
+      <span class="panel-kicker">
+        AI EVENT ANALYSIS
       </span>
 
-    </div>
-
-
-    <div id="details-content" class="details-empty">
-
-      <i class="fa-solid fa-crosshairs"></i>
-
-      <h3>
-        Select a thermal source
-      </h3>
-
-      <p>
-        Click a marker on the map or select an event from the table
-        to view AI classification and source-level information.
-      </p>
+      <h2>
+        Analyze Thermal Event
+      </h2>
 
     </div>
 
-  </section>
+
+    <span class="source-label">
+      MODEL INPUT
+    </span>
+
+  </div>
 
 
-  <!-- =====================================================
-       EVENT LOGS
-  ====================================================== -->
+  <form id="prediction-form">
 
-  <section class="table-panel">
+    <div class="detail-layout">
+
+
+      <!-- =====================================================
+           LEFT : BASIC / THERMAL
+      ====================================================== -->
+
+      <div>
+
+
+        <!-- SOURCE INFORMATION -->
+
+        <div class="classification-box">
+
+          <div class="classification-label">
+            SOURCE INFORMATION
+          </div>
+
+
+          <div class="input-grid">
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Source ID
+              </label>
+
+              <input
+                type="text"
+                id="source_id"
+                placeholder="SOURCE_0001"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Latitude
+              </label>
+
+              <input
+                type="number"
+                id="latitude"
+                step="any"
+                placeholder="16.5062"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Longitude
+              </label>
+
+              <input
+                type="number"
+                id="longitude"
+                step="any"
+                placeholder="80.6480"
+                required
+              >
+
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <!-- THERMAL FEATURES -->
+
+        <div class="classification-box input-section">
+
+          <div class="classification-label">
+            THERMAL FEATURES
+          </div>
+
+
+          <div class="input-grid">
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Mean FRP (MW)
+              </label>
+
+              <input
+                type="number"
+                id="mean_frp"
+                step="any"
+                placeholder="150"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Maximum FRP (MW)
+              </label>
+
+              <input
+                type="number"
+                id="max_frp"
+                step="any"
+                placeholder="300"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Mean Brightness
+              </label>
+
+              <input
+                type="number"
+                id="mean_brightness"
+                step="any"
+                placeholder="330"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Maximum Brightness
+              </label>
+
+              <input
+                type="number"
+                id="max_brightness"
+                step="any"
+                placeholder="360"
+                required
+              >
+
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <!-- INDUSTRIAL FEATURES -->
+
+        <div class="classification-box input-section">
+
+          <div class="classification-label">
+            INDUSTRIAL / GIS FEATURES
+          </div>
+
+
+          <div class="input-grid">
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Mean Distance to Industry (km)
+              </label>
+
+              <input
+                type="number"
+                id="mean_distance_to_industry_km"
+                step="any"
+                placeholder="1.5"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Minimum Distance to Industry (km)
+              </label>
+
+              <input
+                type="number"
+                id="min_distance_to_industry_km"
+                step="any"
+                placeholder="0.5"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Industrial Facilities ≤ 1 km
+              </label>
+
+              <input
+                type="number"
+                id="mean_industrial_facilities_1km"
+                step="any"
+                placeholder="2"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Industrial Facilities ≤ 5 km
+              </label>
+
+              <input
+                type="number"
+                id="mean_industrial_facilities_5km"
+                step="any"
+                placeholder="8"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Industrial Land Ratio
+              </label>
+
+              <input
+                type="number"
+                id="industrial_land_ratio"
+                step="any"
+                placeholder="0.65"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Forest Land Ratio
+              </label>
+
+              <input
+                type="number"
+                id="forest_land_ratio"
+                step="any"
+                placeholder="0.10"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Agricultural Land Ratio
+              </label>
+
+              <input
+                type="number"
+                id="agricultural_land_ratio"
+                step="any"
+                placeholder="0.20"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Nearest Facility Type
+              </label>
+
+              <select id="nearest_facility_type">
+
+                <option value="None">
+                  None
+                </option>
+
+                <option value="Refinery">
+                  Refinery
+                </option>
+
+                <option value="Power Plant">
+                  Power Plant
+                </option>
+
+                <option value="Mine">
+                  Mine
+                </option>
+
+                <option value="Industrial Area">
+                  Industrial Area
+                </option>
+
+                <option value="Factory">
+                  Factory
+                </option>
+
+              </select>
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Nearest Refinery (km)
+              </label>
+
+              <input
+                type="number"
+                id="nearest_refinery_km"
+                step="any"
+                placeholder="5"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Nearest Power Plant (km)
+              </label>
+
+              <input
+                type="number"
+                id="nearest_powerplant_km"
+                step="any"
+                placeholder="8"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Nearest Mine (km)
+              </label>
+
+              <input
+                type="number"
+                id="nearest_mine_km"
+                step="any"
+                placeholder="20"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Nearest Industrial Area (km)
+              </label>
+
+              <input
+                type="number"
+                id="nearest_industrial_area_km"
+                step="any"
+                placeholder="3"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Land Cover Code
+              </label>
+
+              <input
+                type="number"
+                id="landcover_code"
+                step="any"
+                placeholder="4"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Land Cover Class
+              </label>
+
+              <select id="landcover_class">
+
+                <option value="Built-up">
+                  Built-up
+                </option>
+
+                <option value="Cropland">
+                  Cropland
+                </option>
+
+                <option value="Forest">
+                  Forest
+                </option>
+
+                <option value="Grassland">
+                  Grassland
+                </option>
+
+                <option value="Bare">
+                  Bare
+                </option>
+
+                <option value="Water">
+                  Water
+                </option>
+
+              </select>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+
+      <!-- =====================================================
+           RIGHT : TEMPORAL / PERSISTENCE
+      ====================================================== -->
+
+      <div>
+
+
+        <div class="classification-box">
+
+          <div class="classification-label">
+            TEMPORAL / PERSISTENCE FEATURES
+          </div>
+
+
+          <div class="input-grid">
+
+
+            <div class="input-group-custom">
+
+              <label>
+                First Detection
+              </label>
+
+              <input
+                type="datetime-local"
+                id="first_detection"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Last Detection
+              </label>
+
+              <input
+                type="datetime-local"
+                id="last_detection"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Total Detections
+              </label>
+
+              <input
+                type="number"
+                id="total_detections"
+                min="0"
+                step="1"
+                placeholder="10"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Active Days
+              </label>
+
+              <input
+                type="number"
+                id="active_days"
+                min="0"
+                step="any"
+                placeholder="5"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Observation Span (days)
+              </label>
+
+              <input
+                type="number"
+                id="observation_span_days"
+                min="0"
+                step="any"
+                placeholder="10"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Recurrence Rate
+              </label>
+
+              <input
+                type="number"
+                id="recurrence_rate"
+                min="0"
+                step="any"
+                placeholder="0.5"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Detections / Span Day
+              </label>
+
+              <input
+                type="number"
+                id="detections_per_span_day"
+                min="0"
+                step="any"
+                placeholder="1"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Mean Gap (hours)
+              </label>
+
+              <input
+                type="number"
+                id="mean_gap_hours"
+                min="0"
+                step="any"
+                placeholder="24"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Std Gap (hours)
+              </label>
+
+              <input
+                type="number"
+                id="std_gap_hours"
+                min="0"
+                step="any"
+                placeholder="10"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Median Gap (hours)
+              </label>
+
+              <input
+                type="number"
+                id="median_gap_hours"
+                min="0"
+                step="any"
+                placeholder="24"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Minimum Gap (hours)
+              </label>
+
+              <input
+                type="number"
+                id="min_gap_hours"
+                min="0"
+                step="any"
+                placeholder="12"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Maximum Gap (hours)
+              </label>
+
+              <input
+                type="number"
+                id="max_gap_hours"
+                min="0"
+                step="any"
+                placeholder="48"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Temporal Regularity
+              </label>
+
+              <input
+                type="number"
+                id="temporal_regularity"
+                step="any"
+                placeholder="0.75"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Max Active Days — 7d
+              </label>
+
+              <input
+                type="number"
+                id="max_active_days_7d"
+                min="0"
+                step="any"
+                placeholder="5"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Max Active Days — 14d
+              </label>
+
+              <input
+                type="number"
+                id="max_active_days_14d"
+                min="0"
+                step="any"
+                placeholder="8"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Max Active Days — 30d
+              </label>
+
+              <input
+                type="number"
+                id="max_active_days_30d"
+                min="0"
+                step="any"
+                placeholder="15"
+                required
+              >
+
+            </div>
+
+
+            <div class="input-group-custom">
+
+              <label>
+                Observation Days
+              </label>
+
+              <input
+                type="number"
+                id="observation_days"
+                min="0"
+                step="any"
+                placeholder="10"
+                required
+              >
+
+            </div>
+
+          </div>
+
+
+          <!-- ANALYZE BUTTON -->
+
+          <button
+            type="submit"
+            class="analyze-button"
+            id="analyze-button"
+          >
+
+            <i class="fa-solid fa-brain"></i>
+
+            ANALYZE THERMAL EVENT
+
+          </button>
+
+
+          <button
+            type="button"
+            class="reset-button"
+            id="clear-form-button"
+          >
+
+            <i class="fa-solid fa-rotate-left"></i>
+
+            CLEAR INPUTS
+
+          </button>
+
+        </div>
+
+
+        <!-- ===================================================
+             PREDICTION RESULT
+        ==================================================== -->
+
+        <div
+          class="classification-box prediction-result"
+          id="prediction-result"
+        >
+
+          <div class="classification-label">
+            AI PREDICTION
+          </div>
+
+
+          <div
+            id="prediction-status"
+            class="prediction-status"
+          >
+            WAITING FOR INPUT
+          </div>
+
+
+          <div
+            id="prediction-type"
+            class="classification-name"
+          >
+            —
+          </div>
+
+
+          <div class="classification-confidence">
+
+            Model Confidence:
+
+            <strong id="prediction-confidence">
+              —
+            </strong>
+
+          </div>
+
+
+          <div class="confidence-track">
+
+            <div
+              id="prediction-confidence-fill"
+              class="confidence-fill"
+              style="width:0%"
+            ></div>
+
+          </div>
+
+
+          <div
+            id="prediction-message"
+            class="prediction-message"
+          >
+
+            Enter the thermal event features
+            and click Analyze Event.
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </form>
+
+</section>
+
+
+
+<!-- =========================================================
+     STATISTICS
+========================================================= -->
+
+<section class="stats-grid">
+
+  <div class="stat-card total-card">
+
+    <div class="stat-icon">
+
+      <i class="fa-solid fa-fire"></i>
+
+    </div>
+
+    <div>
+
+      <span class="stat-label">
+        TOTAL THERMAL SOURCES
+      </span>
+
+      <strong id="total-sources">
+        0
+      </strong>
+
+    </div>
+
+  </div>
+
+
+  <div class="stat-card industrial-card">
+
+    <div class="stat-icon">
+
+      <i class="fa-solid fa-industry"></i>
+
+    </div>
+
+    <div>
+
+      <span class="stat-label">
+        INDUSTRIAL
+      </span>
+
+      <strong id="industrial-count">
+        0
+      </strong>
+
+    </div>
+
+  </div>
+
+
+  <div class="stat-card forest-card">
+
+    <div class="stat-icon">
+
+      <i class="fa-solid fa-tree"></i>
+
+    </div>
+
+    <div>
+
+      <span class="stat-label">
+        FOREST / NATURAL
+      </span>
+
+      <strong id="forest-count">
+        0
+      </strong>
+
+    </div>
+
+  </div>
+
+
+  <div class="stat-card agricultural-card">
+
+    <div class="stat-icon">
+
+      <i class="fa-solid fa-wheat-awn"></i>
+
+    </div>
+
+    <div>
+
+      <span class="stat-label">
+        AGRICULTURAL
+      </span>
+
+      <strong id="agricultural-count">
+        0
+      </strong>
+
+    </div>
+
+  </div>
+
+
+  <div class="stat-card other-card">
+
+    <div class="stat-icon">
+
+      <i class="fa-solid fa-circle-question"></i>
+
+    </div>
+
+    <div>
+
+      <span class="stat-label">
+        OTHER
+      </span>
+
+      <strong id="other-count">
+        0
+      </strong>
+
+    </div>
+
+  </div>
+
+</section>
+
+
+
+<!-- =========================================================
+     MAP + FILTERS
+========================================================= -->
+
+<section class="main-grid">
+
+
+  <!-- MAP -->
+
+  <div class="map-panel">
 
     <div class="panel-header">
 
       <div>
+
         <span class="panel-kicker">
-          EVENT DATABASE
+          GEOSPATIAL MONITORING
         </span>
 
         <h2>
-          Thermal Event Logs
+          Thermal Event Map
         </h2>
+
       </div>
 
-      <div id="visible-count" class="visible-count">
-        0 EVENTS
+
+      <div class="map-status">
+
+        <span class="live-dot"></span>
+
+        LIVE DATA VIEW
+
       </div>
 
     </div>
 
 
-    <div class="table-container">
+    <div class="map-wrapper">
 
-      <table>
+      <div id="map"></div>
 
-        <thead>
 
-          <tr>
+      <div class="map-legend">
 
-            <th>SOURCE ID</th>
+        <div class="legend-heading">
+          EVENT CLASSIFICATION
+        </div>
 
-            <th>AI CLASSIFICATION</th>
 
-            <th>CONFIDENCE</th>
+        <div class="legend-row">
 
-            <th>LATITUDE</th>
+          <span class="legend-dot industrial"></span>
 
-            <th>LONGITUDE</th>
+          Industrial
 
-            <th>LAND COVER</th>
+        </div>
 
-            <th>MEAN FRP</th>
 
-            <th>PERSISTENCE</th>
+        <div class="legend-row">
 
-            <th>ACTION</th>
+          <span class="legend-dot forest"></span>
 
-          </tr>
+          Forest / Natural
 
-        </thead>
+        </div>
 
-        <tbody id="table-body">
 
-        </tbody>
+        <div class="legend-row">
 
-      </table>
+          <span class="legend-dot agricultural"></span>
+
+          Agricultural
+
+        </div>
+
+
+        <div class="legend-row">
+
+          <span class="legend-dot other"></span>
+
+          Other
+
+        </div>
+
+      </div>
 
     </div>
 
-  </section>
+  </div>
+
+
+
+  <!-- CONTROL PANEL -->
+
+  <aside class="control-panel">
+
+    <div class="panel-header">
+
+      <div>
+
+        <span class="panel-kicker">
+          ANALYSIS CONTROLS
+        </span>
+
+        <h2>
+          Filters
+        </h2>
+
+      </div>
+
+      <i class="fa-solid fa-sliders"></i>
+
+    </div>
+
+
+    <div class="filter-group">
+
+      <label>
+
+        <i class="fa-solid fa-layer-group"></i>
+
+        EVENT TYPE
+
+      </label>
+
+
+      <select id="type-filter">
+
+        <option value="ALL">
+          All Event Types
+        </option>
+
+        <option value="Industrial">
+          Industrial
+        </option>
+
+        <option value="Forest/Natural">
+          Forest / Natural
+        </option>
+
+        <option value="Agricultural">
+          Agricultural
+        </option>
+
+        <option value="Other">
+          Other
+        </option>
+
+      </select>
+
+    </div>
+
+
+    <div class="filter-group">
+
+      <label>
+
+        <i class="fa-solid fa-magnifying-glass"></i>
+
+        SOURCE ID
+
+      </label>
+
+
+      <input
+        type="text"
+        id="search-input"
+        placeholder="SOURCE_0001"
+      >
+
+    </div>
+
+
+    <div class="filter-group">
+
+      <label>
+
+        <i class="fa-solid fa-map-location-dot"></i>
+
+        LAND COVER
+
+      </label>
+
+
+      <select id="landcover-filter">
+
+        <option value="ALL">
+          All Land Covers
+        </option>
+
+      </select>
+
+    </div>
+
+
+    <div class="filter-group">
+
+      <label>
+
+        <i class="fa-solid fa-chart-line"></i>
+
+        MINIMUM CONFIDENCE
+
+      </label>
+
+
+      <select id="confidence-filter">
+
+        <option value="0">
+          Any Confidence
+        </option>
+
+        <option value="50">
+          ≥ 50%
+        </option>
+
+        <option value="70">
+          ≥ 70%
+        </option>
+
+        <option value="80">
+          ≥ 80%
+        </option>
+
+        <option value="90">
+          ≥ 90%
+        </option>
+
+      </select>
+
+    </div>
+
+
+    <button
+      id="reset-btn"
+      class="reset-button"
+    >
+
+      <i class="fa-solid fa-rotate-left"></i>
+
+      RESET FILTERS
+
+    </button>
+
+
+    <div class="system-info">
+
+      <div class="system-info-title">
+
+        <i class="fa-solid fa-circle-info"></i>
+
+        DATA PIPELINE
+
+      </div>
+
+
+      <div class="pipeline-step">
+
+        <span>01</span>
+
+        NASA FIRMS Thermal Detection
+
+      </div>
+
+
+      <div class="pipeline-step">
+
+        <span>02</span>
+
+        GIS / Industrial Context
+
+      </div>
+
+
+      <div class="pipeline-step">
+
+        <span>03</span>
+
+        Temporal Analysis
+
+      </div>
+
+
+      <div class="pipeline-step">
+
+        <span>04</span>
+
+        AI Event Classification
+
+      </div>
+
+    </div>
+
+  </aside>
+
+</section>
+
+
+
+<!-- =========================================================
+     SELECTED EVENT
+========================================================= -->
+
+<section class="details-panel">
+
+  <div class="panel-header">
+
+    <div>
+
+      <span class="panel-kicker">
+        SOURCE ANALYSIS
+      </span>
+
+      <h2>
+        Selected Thermal Source
+      </h2>
+
+    </div>
+
+
+    <span
+      id="selected-source-label"
+      class="source-label"
+    >
+      NO SOURCE SELECTED
+    </span>
+
+  </div>
+
+
+  <div
+    id="details-content"
+    class="details-empty"
+  >
+
+    <i class="fa-solid fa-crosshairs"></i>
+
+    <h3>
+      Select a thermal source
+    </h3>
+
+    <p>
+      Click a marker on the map or select an event
+      from the table to view AI classification
+      and source-level information.
+    </p>
+
+  </div>
+
+</section>
+
+
+
+<!-- =========================================================
+     EVENT LOGS
+========================================================= -->
+
+<section class="table-panel">
+
+  <div class="panel-header">
+
+    <div>
+
+      <span class="panel-kicker">
+        EVENT DATABASE
+      </span>
+
+      <h2>
+        Thermal Event Logs
+      </h2>
+
+    </div>
+
+
+    <div
+      id="visible-count"
+      class="visible-count"
+    >
+      0 EVENTS
+    </div>
+
+  </div>
+
+
+  <div class="table-container">
+
+    <table>
+
+      <thead>
+
+        <tr>
+
+          <th>SOURCE ID</th>
+
+          <th>AI CLASSIFICATION</th>
+
+          <th>CONFIDENCE</th>
+
+          <th>LATITUDE</th>
+
+          <th>LONGITUDE</th>
+
+          <th>LAND COVER</th>
+
+          <th>MEAN FRP</th>
+
+          <th>PERSISTENCE</th>
+
+          <th>ACTION</th>
+
+        </tr>
+
+      </thead>
+
+
+      <tbody id="table-body">
+
+      </tbody>
+
+    </table>
+
+  </div>
+
+</section>
 
 </main>
+
 
 
 <!-- =========================================================
@@ -545,15 +1611,24 @@
 </footer>
 
 
+
 <!-- =========================================================
-     JAVASCRIPT
+     JAVASCRIPT LIBRARIES
 ========================================================= -->
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+</script>
 
-<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+<script
+  src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js">
+</script>
+
 
 <script src="app.js"></script>
 
+
 </body>
+
 </html>
