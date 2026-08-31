@@ -1,11 +1,6 @@
 /* =========================================================
    AI THERMAL EVENT INTELLIGENCE DASHBOARD
-   COMPLETE FRONTEND CONTROLLER
-========================================================= */
-
-
-/* =========================================================
-   GLOBAL VARIABLES
+   COMPLETE APP.JS
 ========================================================= */
 
 let allEvents = [];
@@ -16,11 +11,6 @@ let markersLayer = null;
 
 let alerts = [];
 
-
-/* =========================================================
-   CONFIGURATION
-========================================================= */
-
 const BACKEND_URL = "http://127.0.0.1:8000/predict";
 
 const STORAGE_KEY =
@@ -29,18 +19,6 @@ const STORAGE_KEY =
 
 /* =========================================================
    ALERT RULES
-
-   Industrial + confidence >= 80
-       -> CRITICAL
-
-   Industrial + confidence >= 60
-       -> HIGH
-
-   Industrial + confidence < 60
-       -> MONITOR
-
-   Non-industrial
-       -> NO INDUSTRIAL ALERT
 ========================================================= */
 
 const ALERT_RULES = {
@@ -75,7 +53,7 @@ document.addEventListener(
 
 
 /* =========================================================
-   MAP INITIALIZATION
+   MAP
 ========================================================= */
 
 function initializeMap() {
@@ -86,7 +64,7 @@ function initializeMap() {
 
     if (!mapElement) {
 
-        console.error(
+        console.warn(
             "Map element not found."
         );
 
@@ -108,10 +86,12 @@ function initializeMap() {
     L.tileLayer(
         "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
         {
+
             maxZoom: 19,
 
             attribution:
                 "&copy; OpenStreetMap contributors"
+
         }
     ).addTo(map);
 
@@ -123,12 +103,12 @@ function initializeMap() {
 
 
 /* =========================================================
-   LOAD CSV DATA
+   LOAD CSV
 ========================================================= */
 
 function loadPredictionData() {
 
-    const possiblePaths = [
+    const paths = [
 
         "predictions.csv",
 
@@ -150,7 +130,7 @@ function loadPredictionData() {
 
 
     tryNextCSVPath(
-        possiblePaths,
+        paths,
         0
     );
 
@@ -166,11 +146,14 @@ function tryNextCSVPath(
     index
 ) {
 
-    if (index >= paths.length) {
+    if (
+        index >= paths.length
+    ) {
 
         showDataError();
 
         return;
+
     }
 
 
@@ -217,6 +200,7 @@ function tryNextCSVPath(
 
 
                     return;
+
                 }
 
 
@@ -232,6 +216,7 @@ function tryNextCSVPath(
 
 
                     return;
+
                 }
 
 
@@ -251,7 +236,7 @@ function tryNextCSVPath(
             error: function (error) {
 
                 console.warn(
-                    "CSV path failed:",
+                    "CSV failed:",
                     path,
                     error
                 );
@@ -271,7 +256,7 @@ function tryNextCSVPath(
 
 
 /* =========================================================
-   PROCESS CSV DATA
+   PROCESS DATA
 ========================================================= */
 
 function processData(data) {
@@ -285,12 +270,6 @@ function processData(data) {
     const savedEvents =
         loadDatabase();
 
-
-    /*
-       Combine CSV data + locally saved predictions.
-
-       source_id is used to prevent duplicates.
-    */
 
     const eventMap =
         new Map();
@@ -331,7 +310,7 @@ function processData(data) {
 
 
     console.log(
-        "Total events:",
+        "TOTAL EVENTS:",
         allEvents.length
     );
 
@@ -360,10 +339,6 @@ function normalizeEvent(row) {
     const event = {};
 
 
-    /*
-       Preserve original CSV columns.
-    */
-
     Object.keys(row).forEach(
         key => {
 
@@ -374,9 +349,7 @@ function normalizeEvent(row) {
     );
 
 
-    /* -----------------------------------------------------
-       SOURCE ID
-    ----------------------------------------------------- */
+    /* SOURCE ID */
 
     event.source_id =
         getValue(
@@ -404,9 +377,7 @@ function normalizeEvent(row) {
     }
 
 
-    /* -----------------------------------------------------
-       EVENT TYPE
-    ----------------------------------------------------- */
+    /* EVENT TYPE */
 
     event.predicted_event_type =
         getValue(
@@ -434,9 +405,7 @@ function normalizeEvent(row) {
     }
 
 
-    /* -----------------------------------------------------
-       CONFIDENCE
-    ----------------------------------------------------- */
+    /* CONFIDENCE */
 
     event.confidence =
         parseConfidence(
@@ -461,9 +430,7 @@ function normalizeEvent(row) {
 
     /*
        If CSV does not contain confidence,
-       generate a stable demo score.
-
-       This prevents N/A.
+       create a stable demo confidence score.
     */
 
     if (
@@ -482,9 +449,7 @@ function normalizeEvent(row) {
     }
 
 
-    /* -----------------------------------------------------
-       LOCATION
-    ----------------------------------------------------- */
+    /* LOCATION */
 
     event.latitude =
         parseNumber(
@@ -514,9 +479,7 @@ function normalizeEvent(row) {
         );
 
 
-    /* -----------------------------------------------------
-       LAND COVER
-    ----------------------------------------------------- */
+    /* LAND COVER */
 
     event.landcover =
         getValue(
@@ -540,9 +503,7 @@ function normalizeEvent(row) {
     }
 
 
-    /* -----------------------------------------------------
-       M1 SATELLITE FEATURES
-    ----------------------------------------------------- */
+    /* M1 FEATURES */
 
     event.mean_frp =
         parseNumber(
@@ -594,9 +555,7 @@ function normalizeEvent(row) {
         );
 
 
-    /* -----------------------------------------------------
-       M2 INDUSTRIAL / GIS FEATURES
-    ----------------------------------------------------- */
+    /* M2 FEATURES */
 
     event.mean_distance_industry =
         parseNumber(
@@ -713,9 +672,7 @@ function normalizeEvent(row) {
         );
 
 
-    /* -----------------------------------------------------
-       TEMPORAL FEATURES
-    ----------------------------------------------------- */
+    /* TEMPORAL FEATURES */
 
     event.total_detections =
         parseNumber(
@@ -778,7 +735,7 @@ function normalizeEvent(row) {
 
 
 /* =========================================================
-   DEMO CONFIDENCE SCORE
+   DEMO CONFIDENCE
 ========================================================= */
 
 function getDemoConfidence(
@@ -791,13 +748,6 @@ function getDemoConfidence(
             eventType
         );
 
-
-    /*
-       Generate a stable number from source ID.
-
-       Therefore the same event gets the same
-       confidence after refreshing the page.
-    */
 
     let hash = 0;
 
@@ -816,7 +766,6 @@ function getDemoConfidence(
                     ) +
                     character.charCodeAt(0);
 
-
                 hash |= 0;
 
             }
@@ -830,7 +779,7 @@ function getDemoConfidence(
 
 
     /*
-       Industrial:
+       INDUSTRIAL
        80 - 98%
     */
 
@@ -849,7 +798,7 @@ function getDemoConfidence(
 
 
     /*
-       Agricultural:
+       AGRICULTURAL
        65 - 85%
     */
 
@@ -868,7 +817,7 @@ function getDemoConfidence(
 
 
     /*
-       Forest / Natural:
+       FOREST / NATURAL
        60 - 85%
     */
 
@@ -887,7 +836,7 @@ function getDemoConfidence(
 
 
     /*
-       Other:
+       OTHER
        50 - 75%
     */
 
@@ -902,7 +851,7 @@ function getDemoConfidence(
 
 
 /* =========================================================
-   GET CSV VALUE
+   GET VALUE
 ========================================================= */
 
 function getValue(
@@ -948,7 +897,7 @@ function getValue(
 
 
 /* =========================================================
-   NUMBER PARSER
+   NUMBER
 ========================================================= */
 
 function parseNumber(value) {
@@ -964,26 +913,17 @@ function parseNumber(value) {
     }
 
 
-    const cleaned =
-        String(value)
-            .replace(/,/g, "")
-            .trim();
-
-
     const number =
-        Number(cleaned);
+        Number(
+            String(value)
+                .replace(/,/g, "")
+                .trim()
+        );
 
 
-    if (
-        Number.isFinite(number)
-    ) {
-
-        return number;
-
-    }
-
-
-    return null;
+    return Number.isFinite(number)
+        ? number
+        : null;
 
 }
 
@@ -1009,9 +949,7 @@ function parseConfidence(value) {
             .trim();
 
 
-    if (
-        text === ""
-    ) {
+    if (!text) {
 
         return null;
 
@@ -1043,7 +981,7 @@ function parseConfidence(value) {
 
 
     /*
-       0.91 becomes 91%.
+       Convert 0.92 -> 92
     */
 
     if (
@@ -1075,158 +1013,17 @@ function parseConfidence(value) {
 function isValidEvent(event) {
 
     return (
+
         event.source_id &&
+
         Number.isFinite(
             event.latitude
         ) &&
+
         Number.isFinite(
             event.longitude
         )
-    );
 
-}
-
-
-/* =========================================================
-   DASHBOARD STATISTICS
-========================================================= */
-
-function updateDashboard() {
-
-    /*
-       IMPORTANT:
-       Calculate the category values FIRST.
-
-       The old code calculated TOTAL before declaring
-       the category variables, which caused an error.
-    */
-
-    const industrial =
-        filteredEvents.filter(
-            event =>
-                normalizeType(
-                    event.predicted_event_type
-                ) === "Industrial"
-        ).length;
-
-
-    const forest =
-        filteredEvents.filter(
-            event =>
-                normalizeType(
-                    event.predicted_event_type
-                ) === "Forest/Natural"
-        ).length;
-
-
-    const agricultural =
-        filteredEvents.filter(
-            event =>
-                normalizeType(
-                    event.predicted_event_type
-                ) === "Agricultural"
-        ).length;
-
-
-    const other =
-        filteredEvents.filter(
-            event =>
-                normalizeType(
-                    event.predicted_event_type
-                ) === "Other"
-        ).length;
-
-
-    /*
-       TOTAL = sum of all classifications.
-    */
-
-    const total =
-        industrial +
-        forest +
-        agricultural +
-        other;
-
-
-    setText(
-        "total-sources",
-        total
-    );
-
-
-    setText(
-        "industrial-count",
-        industrial
-    );
-
-
-    setText(
-        "forest-count",
-        forest
-    );
-
-
-    setText(
-        "agricultural-count",
-        agricultural
-    );
-
-
-    setText(
-        "other-count",
-        other
-    );
-
-
-    setText(
-        "visible-count",
-        `${total} EVENTS`
-    );
-
-
-    console.log(
-        "================================"
-    );
-
-    console.log(
-        "THERMAL EVENT STATISTICS"
-    );
-
-    console.log(
-        "TOTAL:",
-        total
-    );
-
-    console.log(
-        "INDUSTRIAL:",
-        industrial
-    );
-
-    console.log(
-        "FOREST / NATURAL:",
-        forest
-    );
-
-    console.log(
-        "AGRICULTURAL:",
-        agricultural
-    );
-
-    console.log(
-        "OTHER:",
-        other
-    );
-
-    console.log(
-        "CHECK:",
-        industrial +
-        forest +
-        agricultural +
-        other
-    );
-
-    console.log(
-        "================================"
     );
 
 }
@@ -1286,6 +1083,136 @@ function normalizeType(type) {
 
 
 /* =========================================================
+   DASHBOARD
+========================================================= */
+
+function updateDashboard() {
+
+    /*
+       IMPORTANT:
+       Calculate category counts first.
+    */
+
+    const industrial =
+        filteredEvents.filter(
+            event =>
+                normalizeType(
+                    event.predicted_event_type
+                ) === "Industrial"
+        ).length;
+
+
+    const forest =
+        filteredEvents.filter(
+            event =>
+                normalizeType(
+                    event.predicted_event_type
+                ) === "Forest/Natural"
+        ).length;
+
+
+    const agricultural =
+        filteredEvents.filter(
+            event =>
+                normalizeType(
+                    event.predicted_event_type
+                ) === "Agricultural"
+        ).length;
+
+
+    const other =
+        filteredEvents.filter(
+            event =>
+                normalizeType(
+                    event.predicted_event_type
+                ) === "Other"
+        ).length;
+
+
+    /*
+       TOTAL is the sum of all categories.
+    */
+
+    const total =
+        industrial +
+        forest +
+        agricultural +
+        other;
+
+
+    setText(
+        "total-sources",
+        total
+    );
+
+
+    setText(
+        "industrial-count",
+        industrial
+    );
+
+
+    setText(
+        "forest-count",
+        forest
+    );
+
+
+    setText(
+        "agricultural-count",
+        agricultural
+    );
+
+
+    setText(
+        "other-count",
+        other
+    );
+
+
+    setText(
+        "visible-count",
+        `${total} EVENTS`
+    );
+
+
+    console.log(
+        "--------------------------------"
+    );
+
+    console.log(
+        "TOTAL THERMAL SOURCES:",
+        total
+    );
+
+    console.log(
+        "INDUSTRIAL:",
+        industrial
+    );
+
+    console.log(
+        "FOREST / NATURAL:",
+        forest
+    );
+
+    console.log(
+        "AGRICULTURAL:",
+        agricultural
+    );
+
+    console.log(
+        "OTHER:",
+        other
+    );
+
+    console.log(
+        "--------------------------------"
+    );
+
+}
+
+
+/* =========================================================
    LAND COVER FILTER
 ========================================================= */
 
@@ -1297,13 +1224,19 @@ function populateLandCoverFilter() {
         );
 
 
-    if (!select) return;
+    if (!select) {
+
+        return;
+
+    }
 
 
     select.innerHTML = `
+
         <option value="ALL">
             All Land Covers
         </option>
+
     `;
 
 
@@ -1357,54 +1290,54 @@ function populateLandCoverFilter() {
 
 function applyFilters() {
 
-    const typeElement =
+    const typeFilter =
         document.getElementById(
             "type-filter"
         );
 
 
-    const searchElement =
+    const searchInput =
         document.getElementById(
             "search-input"
         );
 
 
-    const landcoverElement =
+    const landcoverFilter =
         document.getElementById(
             "landcover-filter"
         );
 
 
-    const confidenceElement =
+    const confidenceFilter =
         document.getElementById(
             "confidence-filter"
         );
 
 
     const type =
-        typeElement
-            ? typeElement.value
+        typeFilter
+            ? typeFilter.value
             : "ALL";
 
 
     const search =
-        searchElement
-            ? searchElement.value
+        searchInput
+            ? searchInput.value
                 .trim()
                 .toLowerCase()
             : "";
 
 
     const landcover =
-        landcoverElement
-            ? landcoverElement.value
+        landcoverFilter
+            ? landcoverFilter.value
             : "ALL";
 
 
     const minimumConfidence =
-        confidenceElement
+        confidenceFilter
             ? Number(
-                confidenceElement.value
+                confidenceFilter.value
             )
             : 0;
 
@@ -1439,23 +1372,26 @@ function applyFilters() {
 
 
                 const matchesConfidence =
-                    minimumConfidence === 0
-                        ? true
-                        :
-                        (
-                            Number.isFinite(
-                                event.confidence
-                            ) &&
-                            event.confidence >=
-                                minimumConfidence
-                        );
+                    minimumConfidence === 0 ||
+                    (
+                        Number.isFinite(
+                            event.confidence
+                        ) &&
+                        event.confidence >=
+                            minimumConfidence
+                    );
 
 
                 return (
+
                     matchesType &&
+
                     matchesSearch &&
+
                     matchesLandcover &&
+
                     matchesConfidence
+
                 );
 
             }
@@ -1530,7 +1466,8 @@ function renderMarkers() {
                                 type
                             ),
 
-                        color: "#ffffff",
+                        color:
+                            "#ffffff",
 
                         weight: 1,
 
@@ -1543,9 +1480,7 @@ function renderMarkers() {
 
 
             marker.bindPopup(
-                createPopup(
-                    event
-                )
+                createPopup(event)
             );
 
 
@@ -1585,12 +1520,14 @@ function renderMarkers() {
         map.fitBounds(
             bounds,
             {
+
                 padding: [
                     30,
                     30
                 ],
 
                 maxZoom: 10
+
             }
         );
 
@@ -1624,7 +1561,7 @@ function createPopup(event) {
         );
 
 
-    let alertText =
+    let status =
         "NO ACTIVE ALERT";
 
 
@@ -1632,21 +1569,25 @@ function createPopup(event) {
         alertLevel === "critical"
     ) {
 
-        alertText =
+        status =
             "CRITICAL ALERT";
 
-    } else if (
+    }
+
+    else if (
         alertLevel === "high"
     ) {
 
-        alertText =
+        status =
             "HIGH ALERT";
 
-    } else if (
+    }
+
+    else if (
         alertLevel === "monitor"
     ) {
 
-        alertText =
+        status =
             "MONITOR";
 
     }
@@ -1680,7 +1621,7 @@ function createPopup(event) {
 
             Status:
             <b>
-                ${alertText}
+                ${status}
             </b>
 
             <br><br>
@@ -1713,15 +1654,22 @@ function getEventColor(type) {
     switch (type) {
 
         case "Industrial":
+
             return "#ff4d5a";
 
+
         case "Forest/Natural":
+
             return "#22c55e";
 
+
         case "Agricultural":
+
             return "#f59e0b";
 
+
         default:
+
             return "#94a3b8";
 
     }
@@ -1730,7 +1678,7 @@ function getEventColor(type) {
 
 
 /* =========================================================
-   BADGE CLASS
+   BADGE
 ========================================================= */
 
 function getBadgeClass(type) {
@@ -1738,15 +1686,22 @@ function getBadgeClass(type) {
     switch (type) {
 
         case "Industrial":
+
             return "badge-industrial";
 
+
         case "Forest/Natural":
+
             return "badge-forest";
 
+
         case "Agricultural":
+
             return "badge-agricultural";
 
+
         default:
+
             return "badge-other";
 
     }
@@ -1755,7 +1710,7 @@ function getBadgeClass(type) {
 
 
 /* =========================================================
-   EVENT TABLE
+   TABLE
 ========================================================= */
 
 function renderTable() {
@@ -1949,7 +1904,6 @@ function renderTable() {
 
                     e.stopPropagation();
 
-
                     showEventDetails(
                         event
                     );
@@ -1988,7 +1942,7 @@ function renderTable() {
 
 
 /* =========================================================
-   SHOW EVENT BY SOURCE ID
+   SHOW EVENT BY ID
 ========================================================= */
 
 function showEventById(
@@ -2018,11 +1972,10 @@ function showEventById(
 
 /* =========================================================
    EVENT DETAILS
+   HORIZONTAL VERSION
 ========================================================= */
 
-function showEventDetails(
-    event
-) {
+function showEventDetails(event) {
 
     const container =
         document.getElementById(
@@ -2036,9 +1989,7 @@ function showEventDetails(
         );
 
 
-    if (
-        sourceLabel
-    ) {
+    if (sourceLabel) {
 
         sourceLabel.textContent =
             event.source_id;
@@ -2087,14 +2038,18 @@ function showEventDetails(
         alertText =
             "CRITICAL INDUSTRIAL FIRE ALERT";
 
-    } else if (
+    }
+
+    else if (
         alertLevel === "high"
     ) {
 
         alertText =
             "HIGH-RISK INDUSTRIAL EVENT";
 
-    } else if (
+    }
+
+    else if (
         alertLevel === "monitor"
     ) {
 
@@ -2106,18 +2061,34 @@ function showEventDetails(
 
     container.innerHTML = `
 
-        <div class="details-header">
+        <!-- ======================================
+             SELECTED THERMAL SOURCE
+        ======================================= -->
+
+        <div
+            class="details-header"
+            style="
+                width:100%;
+                text-align:center;
+                margin-bottom:18px;
+            "
+        >
 
             <div>
 
                 <span class="panel-kicker">
+
                     SELECTED THERMAL SOURCE
+
                 </span>
 
+
                 <h3>
+
                     ${escapeHTML(
                         event.source_id
                     )}
+
                 </h3>
 
             </div>
@@ -2125,46 +2096,99 @@ function showEventDetails(
         </div>
 
 
-        <div class="details-classification">
+        <!-- ======================================
+             CLASSIFICATION / CONFIDENCE / STATUS
+        ======================================= -->
 
-            <div>
+        <div
+            class="details-classification"
+            style="
+                display:grid;
+                grid-template-columns:
+                    repeat(3, minmax(0, 1fr));
+                gap:18px;
+                width:100%;
+                margin-bottom:20px;
+                box-sizing:border-box;
+            "
+        >
+
+            <div
+                style="
+                    text-align:center;
+                    min-width:0;
+                "
+            >
 
                 <span>
                     CLASSIFICATION
                 </span>
 
+
                 <strong
                     style="
-                        color:${getEventColor(type)}
+                        display:block;
+                        color:${getEventColor(type)};
+                        margin-top:5px;
                     "
                 >
+
                     ${escapeHTML(type)}
+
                 </strong>
 
             </div>
 
 
-            <div>
+            <div
+                style="
+                    text-align:center;
+                    min-width:0;
+                "
+            >
 
                 <span>
                     CONFIDENCE
                 </span>
 
-                <strong>
+
+                <strong
+                    style="
+                        display:block;
+                        margin-top:5px;
+                    "
+                >
+
                     ${confidence}
+
                 </strong>
 
             </div>
 
 
-            <div>
+            <div
+                style="
+                    text-align:center;
+                    min-width:0;
+                "
+            >
 
                 <span>
                     STATUS
                 </span>
 
-                <strong>
-                    ${alertText}
+
+                <strong
+                    style="
+                        display:block;
+                        margin-top:5px;
+                    "
+                >
+
+                    ${escapeHTML(
+                        alertText
+                    )}
+
                 </strong>
 
             </div>
@@ -2172,7 +2196,27 @@ function showEventDetails(
         </div>
 
 
-        <div class="details-grid">
+        <!-- ======================================
+             HORIZONTAL DETAILS GRID
+        ======================================= -->
+
+        <div
+            class="details-grid"
+            style="
+                display:grid;
+
+                grid-template-columns:
+                    repeat(4, minmax(150px, 1fr));
+
+                gap:14px;
+
+                width:100%;
+
+                box-sizing:border-box;
+
+                align-items:stretch;
+            "
+        >
 
             ${detailItem(
                 "Latitude",
@@ -2297,6 +2341,66 @@ function showEventDetails(
 
 
 /* =========================================================
+   DETAIL BOX
+========================================================= */
+
+function detailItem(
+    label,
+    value
+) {
+
+    return `
+
+        <div
+            class="detail-item"
+            style="
+                width:100%;
+                min-width:0;
+                box-sizing:border-box;
+                min-height:72px;
+                display:flex;
+                flex-direction:column;
+                justify-content:center;
+                align-items:center;
+                text-align:center;
+            "
+        >
+
+            <span
+                class="detail-label"
+            >
+
+                ${escapeHTML(label)}
+
+            </span>
+
+
+            <span
+                class="detail-value"
+            >
+
+                ${
+                    value !== null &&
+                    value !== undefined &&
+                    value !== ""
+                        ?
+                        escapeHTML(
+                            String(value)
+                        )
+                        :
+                        "—"
+                }
+
+            </span>
+
+        </div>
+
+    `;
+
+}
+
+
+/* =========================================================
    ALERT CENTER
 ========================================================= */
 
@@ -2321,8 +2425,11 @@ function updateAlerts() {
 
 
                     return {
+
                         ...event,
+
                         level
+
                     };
 
                 }
@@ -2348,8 +2455,8 @@ function getAlertLevel(
 ) {
 
     /*
-       ONLY Industrial events can trigger
-       Industrial Fire alerts.
+       Only INDUSTRIAL events
+       can trigger the industrial alert.
     */
 
     if (
@@ -2492,12 +2599,6 @@ function renderAlertCenter() {
                 `alert-card ${alert.level}`;
 
 
-            const confidence =
-                formatConfidence(
-                    alert.confidence
-                );
-
-
             let title =
                 "";
 
@@ -2507,8 +2608,7 @@ function renderAlertCenter() {
 
 
             if (
-                alert.level ===
-                "critical"
+                alert.level === "critical"
             ) {
 
                 title =
@@ -2517,7 +2617,9 @@ function renderAlertCenter() {
                 icon =
                     "fa-triangle-exclamation";
 
-            } else if (
+            }
+
+            else if (
                 alert.level === "high"
             ) {
 
@@ -2527,7 +2629,9 @@ function renderAlertCenter() {
                 icon =
                     "fa-fire";
 
-            } else {
+            }
+
+            else {
 
                 title =
                     "INDUSTRIAL EVENT — MONITOR";
@@ -2595,7 +2699,9 @@ function renderAlertCenter() {
 
                             <strong>
 
-                                ${confidence}
+                                ${formatConfidence(
+                                    alert.confidence
+                                )}
 
                             </strong>
 
@@ -2648,11 +2754,13 @@ function renderAlertCenter() {
 
                             details.scrollIntoView(
                                 {
+
                                     behavior:
                                         "smooth",
 
                                     block:
                                         "center"
+
                                 }
                             );
 
@@ -2675,7 +2783,7 @@ function renderAlertCenter() {
 
 
 /* =========================================================
-   ALERT DISPLAY TEXT
+   ALERT TEXT
 ========================================================= */
 
 function getAlertDisplayText(
@@ -2690,40 +2798,45 @@ function getAlertDisplayText(
         );
 
 
-    switch (level) {
+    if (
+        level === "critical"
+    ) {
 
-        case "critical":
-
-            return (
-                "CRITICAL ALERT: " +
-                "High-Confidence Industrial Event"
-            );
-
-
-        case "high":
-
-            return (
-                "HIGH ALERT: " +
-                "Medium-Confidence Industrial Event"
-            );
-
-
-        case "monitor":
-
-            return (
-                "MONITOR: " +
-                "Low-Confidence Industrial Event"
-            );
-
-
-        default:
-
-            return (
-                "NORMAL: " +
-                "No Active Alert"
-            );
+        return (
+            "CRITICAL ALERT: " +
+            "High-Confidence Industrial Event"
+        );
 
     }
+
+
+    if (
+        level === "high"
+    ) {
+
+        return (
+            "HIGH ALERT: " +
+            "Medium-Confidence Industrial Event"
+        );
+
+    }
+
+
+    if (
+        level === "monitor"
+    ) {
+
+        return (
+            "MONITOR: " +
+            "Low-Confidence Industrial Event"
+        );
+
+    }
+
+
+    return (
+        "NORMAL: No Active Alert"
+    );
 
 }
 
@@ -2796,7 +2909,7 @@ function setupPredictionForm() {
 
 
                 /*
-                   Try the real backend first.
+                   Try backend.
                 */
 
                 try {
@@ -2810,8 +2923,10 @@ function setupPredictionForm() {
                                     "POST",
 
                                 headers: {
+
                                     "Content-Type":
                                         "application/json"
+
                                 },
 
                                 body:
@@ -2832,7 +2947,9 @@ function setupPredictionForm() {
 
                     }
 
-                } catch (backendError) {
+                }
+
+                catch (backendError) {
 
                     console.warn(
                         "Backend unavailable.",
@@ -2843,8 +2960,8 @@ function setupPredictionForm() {
 
 
                 /*
-                   If backend is unavailable,
-                   use the demo classifier.
+                   Backend unavailable:
+                   use local demo prediction.
                 */
 
                 if (!result) {
@@ -2864,27 +2981,15 @@ function setupPredictionForm() {
                     );
 
 
-                /*
-                   Save prediction.
-                */
-
                 saveEventToDatabase(
                     eventRecord
                 );
 
 
-                /*
-                   Add/update event.
-                */
-
                 upsertEvent(
                     eventRecord
                 );
 
-
-                /*
-                   Update UI.
-                */
 
                 showPredictionResult(
                     eventRecord
@@ -2902,10 +3007,6 @@ function setupPredictionForm() {
                 updateDatabaseStatus();
 
 
-                /*
-                   Move map to new prediction.
-                */
-
                 if (
                     map &&
                     Number.isFinite(
@@ -2918,8 +3019,11 @@ function setupPredictionForm() {
 
                     map.setView(
                         [
+
                             eventRecord.latitude,
+
                             eventRecord.longitude
+
                         ],
                         12
                     );
@@ -2931,8 +3035,9 @@ function setupPredictionForm() {
 
                 }
 
+            }
 
-            } catch (error) {
+            catch (error) {
 
                 console.error(
                     "Prediction failed:",
@@ -2945,8 +3050,9 @@ function setupPredictionForm() {
                     "Prediction failed."
                 );
 
+            }
 
-            } finally {
+            finally {
 
                 if (button) {
 
@@ -2984,9 +3090,7 @@ function readPredictionForm() {
     function value(id) {
 
         const element =
-            document.getElementById(
-                id
-            );
+            document.getElementById(id);
 
 
         return element
@@ -3003,40 +3107,33 @@ function readPredictionForm() {
                 value("latitude")
             ),
 
-
         longitude:
             Number(
                 value("longitude")
             ),
-
 
         mean_frp:
             Number(
                 value("mean_frp")
             ),
 
-
         max_frp:
             Number(
                 value("max_frp")
             ),
-
 
         mean_brightness:
             Number(
                 value("mean_brightness")
             ),
 
-
         max_brightness:
             Number(
                 value("max_brightness")
             ),
 
-
         nearest_facility_type:
             value("facility_type"),
-
 
         distance_to_industry_km:
             Number(
@@ -3045,14 +3142,12 @@ function readPredictionForm() {
                 )
             ),
 
-
         industrial_facilities_1km:
             Number(
                 value(
                     "facilities_1km"
                 )
             ),
-
 
         industrial_facilities_5km:
             Number(
@@ -3061,7 +3156,6 @@ function readPredictionForm() {
                 )
             ),
 
-
         total_detections:
             Number(
                 value(
@@ -3069,14 +3163,12 @@ function readPredictionForm() {
                 )
             ),
 
-
         active_days:
             Number(
                 value(
                     "active_days"
                 )
             ),
-
 
         observation_span_days:
             Number(
@@ -3091,7 +3183,7 @@ function readPredictionForm() {
 
 
 /* =========================================================
-   LOCAL DEMO PREDICTION
+   LOCAL PREDICTION
 ========================================================= */
 
 function localPredictionFallback(
@@ -3214,10 +3306,6 @@ function localPredictionFallback(
         "Other";
 
 
-    /*
-       Industrial event.
-    */
-
     if (
         industrialContext &&
         (
@@ -3233,10 +3321,6 @@ function localPredictionFallback(
     }
 
 
-    /*
-       Persistent non-industrial event.
-    */
-
     else if (
         persistent &&
         !industrialContext
@@ -3247,10 +3331,6 @@ function localPredictionFallback(
 
     }
 
-
-    /*
-       Strong agricultural-type thermal source.
-    */
 
     else if (
         (
@@ -3265,10 +3345,6 @@ function localPredictionFallback(
     }
 
 
-    /*
-       Generate demo confidence.
-    */
-
     let confidence =
         Math.max(
             45,
@@ -3280,11 +3356,8 @@ function localPredictionFallback(
 
 
     /*
-       Only Industrial events can have
-       high industrial-alert confidence.
-
-       This keeps non-industrial events
-       out of the Industrial Alert Center.
+       Non-industrial events cannot
+       generate industrial alerts.
     */
 
     if (
@@ -3340,11 +3413,6 @@ function normalizePredictionResponse(
             result.score
         );
 
-
-    /*
-       If backend also does not provide confidence,
-       generate a stable demo score.
-    */
 
     if (
         confidence === null ||
@@ -3427,7 +3495,7 @@ function normalizePredictionResponse(
 
 
 /* =========================================================
-   SHOW PREDICTION RESULT
+   PREDICTION RESULT
 ========================================================= */
 
 function showPredictionResult(
@@ -3458,9 +3526,7 @@ function showPredictionResult(
 
 
     const color =
-        getEventColor(
-            type
-        );
+        getEventColor(type);
 
 
     resultBox.classList.remove(
@@ -3505,9 +3571,6 @@ function showPredictionResult(
 
         icon.style.borderColor =
             color;
-
-        icon.style.background =
-            `${color}18`;
 
     }
 
@@ -3623,7 +3686,6 @@ function showPredictionError(
 
 /* =========================================================
    DATABASE
-   Browser localStorage database
 ========================================================= */
 
 function loadDatabase() {
@@ -3662,7 +3724,9 @@ function loadDatabase() {
             isValidEvent
         );
 
-    } catch (error) {
+    }
+
+    catch (error) {
 
         console.error(
             "Database read error:",
@@ -3678,7 +3742,7 @@ function loadDatabase() {
 
 
 /* =========================================================
-   SAVE EVENT
+   SAVE DATABASE
 ========================================================= */
 
 function saveEventToDatabase(
@@ -3711,7 +3775,9 @@ function saveEventToDatabase(
         database[index] =
             event;
 
-    } else {
+    }
+
+    else {
 
         database.push(
             event
@@ -3729,7 +3795,7 @@ function saveEventToDatabase(
 
 
     console.log(
-        "Saved to database:",
+        "Saved event:",
         id
     );
 
@@ -3766,7 +3832,9 @@ function upsertEvent(
         allEvents[index] =
             event;
 
-    } else {
+    }
+
+    else {
 
         allEvents.push(
             event
@@ -3789,11 +3857,6 @@ function upsertEvent(
 ========================================================= */
 
 function updateDatabaseStatus() {
-
-    /*
-       The HTML may or may not contain this element.
-       The dashboard still works without it.
-    */
 
     const element =
         document.getElementById(
@@ -3819,7 +3882,9 @@ function updateDatabaseStatus() {
         element.textContent =
             `DATABASE: ${count} SAVED`;
 
-    } else {
+    }
+
+    else {
 
         element.textContent =
             "DATABASE READY";
@@ -3849,12 +3914,6 @@ function restoreDatabase() {
 
         filteredEvents =
             [...saved];
-
-
-        console.log(
-            "Restored saved events:",
-            saved.length
-        );
 
 
         populateLandCoverFilter();
@@ -4034,52 +4093,7 @@ function setupEventListeners() {
 
 
 /* =========================================================
-   DETAILS ITEM
-========================================================= */
-
-function detailItem(
-    label,
-    value
-) {
-
-    return `
-
-        <div class="detail-item">
-
-            <span class="detail-label">
-
-                ${escapeHTML(
-                    label
-                )}
-
-            </span>
-
-
-            <span class="detail-value">
-
-                ${
-                    value !== null &&
-                    value !== undefined &&
-                    value !== ""
-                        ?
-                        escapeHTML(
-                            String(value)
-                        )
-                        :
-                        "—"
-                }
-
-            </span>
-
-        </div>
-
-    `;
-
-}
-
-
-/* =========================================================
-   SET TEXT
+   UTILITY FUNCTIONS
 ========================================================= */
 
 function setText(
@@ -4093,9 +4107,7 @@ function setText(
         );
 
 
-    if (
-        element
-    ) {
+    if (element) {
 
         element.textContent =
             text;
@@ -4321,14 +4333,9 @@ function escapeHTML(
 function showDataError() {
 
     console.error(
-        "Failed to load predictions.csv."
+        "Could not load predictions.csv."
     );
 
-
-    /*
-       Even if CSV fails, keep any saved
-       browser database available.
-    */
 
     const saved =
         loadDatabase();
@@ -4364,5 +4371,5 @@ function showDataError() {
 
 
 /* =========================================================
-   END OF APP.JS
+   END
 ========================================================= */
