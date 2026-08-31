@@ -9,47 +9,31 @@
 ========================================================= */
 
 let allEvents = [];
+
 let filteredEvents = [];
 
-let map = null;
-let markersLayer = null;
+let markersLayer;
 
+let map;
 let alerts = [];
+const ALERT_THRESHOLDS = { critical: 85, high: 70, monitor: 50 };
 
 
-/* =========================================================
-   ALERT RULES
+/*
+   Backend API
 
-   REQUIRED CONDITION:
+   Change this if your FastAPI/Flask backend
+   runs on another address or port.
+*/
 
-   Industrial Fire + confidence >= 80
-       => HIGH
-
-   Industrial Fire + confidence >= 60
-       => MEDIUM
-
-   Everything else
-       => LOW / NO ALERT
-========================================================= */
-
-const ALERT_RULES = {
-    HIGH: 80,
-    MEDIUM: 60
-};
-
-
-/* =========================================================
-   BACKEND
-========================================================= */
-
-const BACKEND_URL = "http://127.0.0.1:8000/predict";
+const BACKEND_URL = "https://sailajacode-sih-fire-recognation.hf.space/predict";
 
 
 /* =========================================================
    INITIALIZE
 ========================================================= */
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", function () {
 
     initializeMap();
 
@@ -63,765 +47,274 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 /* =========================================================
-   MAP
+   MAP INITIALIZATION
 ========================================================= */
 
 function initializeMap() {
 
-    const mapElement = document.getElementById("map");
-
-    if (!mapElement) {
-        console.error("Map element not found.");
-        return;
-    }
-
     map = L.map("map", {
+
+        center: [20.5937, 78.9629],
+
+        zoom: 5,
+
         zoomControl: true
-    }).setView(
-        [20.5937, 78.9629],
-        5
-    );
-
-
-    L.tileLayer(
-        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        {
-            maxZoom: 19,
-            attribution:
-                "&copy; OpenStreetMap contributors"
-        }
-    ).addTo(map);
-
-
-    markersLayer = L.layerGroup().addTo(map);
-
-}
-
-
-/* =========================================================
-   CSV LOADING
-
-   IMPORTANT:
-
-   Your index.html and predictions.csv are inside
-   frontend/.
-
-   Therefore predictions.csv is the FIRST path.
-
-   Extra paths are kept as fallbacks.
-========================================================= */
-
-function loadPredictionData() {
-
-    const possiblePaths = [
-
-        "predictions.csv",
-
-        "./predictions.csv",
-
-        "frontend/predictions.csv",
-
-        "static/predictions.csv",
-
-        "./static/predictions.csv",
-
-        "data/predictions.csv",
-
-        "./data/predictions.csv"
-
-    ];
-
-
-    tryNextCSVPath(
-        possiblePaths,
-        0
-    );
-
-}
-
-
-/* =========================================================
-   TRY CSV PATH
-========================================================= */
-
-function tryNextCSVPath(paths, index) {
-
-    if (index >= paths.length) {
-
-        showDataError();
-
-        return;
-
-    }
-
-
-    const path = paths[index];
-
-    console.log(
-        "Trying CSV:",
-        path
-    );
-
-
-    Papa.parse(
-        path,
-        {
-
-            download: true,
-
-            header: true,
-
-            skipEmptyLines: true,
-
-            dynamicTyping: false,
-
-
-            complete: function(results) {
-
-                if (
-                    results.errors &&
-                    results.errors.length > 0
-                ) {
-
-                    console.warn(
-                        "CSV error:",
-                        path,
-                        results.errors
-                    );
-
-                    tryNextCSVPath(
-                        paths,
-                        index + 1
-                    );
-
-                    return;
-
-                }
-
-
-                if (
-                    !results.data ||
-                    results.data.length === 0
-                ) {
-
-                    tryNextCSVPath(
-                        paths,
-                        index + 1
-                    );
-
-                    return;
-
-                }
-
-
-                console.log(
-                    "CSV loaded successfully:",
-                    path
-                );
-
-
-                processData(
-                    results.data
-                );
-
-            },
-
-
-            error: function(error) {
-
-                console.warn(
-                    "Could not load:",
-                    path,
-                    error
-                );
-
-
-                tryNextCSVPath(
-                    paths,
-                    index + 1
-                );
-
-            }
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   PROCESS DATA
-========================================================= */
-
-function processData(data) {
-
-    allEvents = data
-        .map(normalizeEvent)
-        .filter(isValidEvent);
-
-
-    filteredEvents = [
-        ...allEvents
-    ];
-
-
-    console.log(
-        "Total valid events:",
-        allEvents.length
-    );
-
-
-    console.log(
-        "First event:",
-        allEvents[0]
-    );
-
-
-    populateLandCoverFilter();
-
-    updateDashboard();
-
-    renderMarkers();
-
-    renderTable();
-
-    updateAlerts();
-
-}
-
-
-/* =========================================================
-   NORMALIZE EVENT
-========================================================= */
-
-function normalizeEvent(row) {
-
-    const event = {};
-
-
-    /*
-       Preserve every original CSV field.
-    */
-
-    Object.keys(row).forEach(key => {
-
-        event[key] = row[key];
 
     });
 
 
-    /* SOURCE ID */
+    L.tileLayer(
 
-    event.source_id = getValue(
-        row,
-        [
-            "source_id",
-            "SOURCE_ID",
-            "Source_ID",
-            "sourceId",
-            "SOURCEID"
-        ]
-    );
+        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
 
+        {
 
-    /* EVENT TYPE */
+            attribution:
+                '&copy; OpenStreetMap contributors',
 
-    event.predicted_event_type = getValue(
-        row,
-        [
-            "predicted_event_type",
-            "event_type",
-            "classification",
-            "predicted_type",
-            "prediction"
-        ]
-    );
+            maxZoom: 19
 
+        }
 
-    if (!event.predicted_event_type) {
+    ).addTo(map);
 
-        event.predicted_event_type =
-            "Other";
 
-    }
-
-
-    /* =====================================================
-       CONFIDENCE
-
-       IMPORTANT:
-
-       DO NOT use || 0.
-
-       Missing confidence = null.
-
-       This prevents a missing value from being
-       falsely displayed as 0%.
-    ===================================================== */
-
-    event.confidence = parseConfidence(
-        getValue(
-            row,
-            [
-                "confidence_pct",
-                "confidence",
-                "prediction_confidence",
-                "confidence_score",
-                "model_confidence",
-                "confidence_percent",
-                "prediction_probability",
-                "probability",
-                "probability_score",
-                "Confidence",
-                "CONFIDENCE"
-            ]
-        )
-    );
-
-
-    /* LATITUDE */
-
-    event.latitude = parseNumber(
-        getValue(
-            row,
-            [
-                "latitude",
-                "lat",
-                "LATITUDE",
-                "Latitude"
-            ]
-        )
-    );
-
-
-    /* LONGITUDE */
-
-    event.longitude = parseNumber(
-        getValue(
-            row,
-            [
-                "longitude",
-                "lon",
-                "LONGITUDE",
-                "Longitude"
-            ]
-        )
-    );
-
-
-    /* LAND COVER */
-
-    event.landcover = getValue(
-        row,
-        [
-            "landcover_class",
-            "land_cover",
-            "landcover",
-            "land_cover_class",
-            "Landcover"
-        ]
-    );
-
-
-    if (!event.landcover) {
-        event.landcover = "Unknown";
-    }
-
-
-    /* M1 */
-
-    event.mean_frp = parseNumber(
-        getValue(
-            row,
-            [
-                "mean_frp",
-                "mean_frp_mw"
-            ]
-        )
-    );
-
-
-    event.max_frp = parseNumber(
-        getValue(
-            row,
-            [
-                "max_frp",
-                "max_frp_mw"
-            ]
-        )
-    );
-
-
-    event.mean_brightness = parseNumber(
-        getValue(
-            row,
-            [
-                "mean_brightness"
-            ]
-        )
-    );
-
-
-    event.max_brightness = parseNumber(
-        getValue(
-            row,
-            [
-                "max_brightness"
-            ]
-        )
-    );
-
-
-    /* M2 */
-
-    event.mean_distance_industry =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "mean_distance_to_industry_km",
-                    "mean_distance_industry"
-                ]
-            )
-        );
-
-
-    event.min_distance_industry =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "min_distance_to_industry_km",
-                    "min_distance_industry"
-                ]
-            )
-        );
-
-
-    event.facilities_1km =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "mean_industrial_facilities_1km",
-                    "number_of_industrial_facilities_1km"
-                ]
-            )
-        );
-
-
-    event.facilities_5km =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "mean_industrial_facilities_5km",
-                    "number_of_industrial_facilities_5km"
-                ]
-            )
-        );
-
-
-    event.nearest_facility_type =
-        getValue(
-            row,
-            [
-                "nearest_facility_type"
-            ]
-        ) || "N/A";
-
-
-    event.nearest_refinery =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "nearest_refinery_km"
-                ]
-            )
-        );
-
-
-    event.nearest_powerplant =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "nearest_powerplant_km"
-                ]
-            )
-        );
-
-
-    event.nearest_mine =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "nearest_mine_km"
-                ]
-            )
-        );
-
-
-    event.nearest_industrial_area =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "nearest_industrial_area_km"
-                ]
-            )
-        );
-
-
-    /* M4 */
-
-    event.total_detections =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "total_detections"
-                ]
-            )
-        );
-
-
-    event.active_days =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "active_days"
-                ]
-            )
-        );
-
-
-    event.observation_span_days =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "observation_span_days"
-                ]
-            )
-        );
-
-
-    event.recurrence_rate =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "recurrence_rate"
-                ]
-            )
-        );
-
-
-    event.temporal_regularity =
-        parseNumber(
-            getValue(
-                row,
-                [
-                    "temporal_regularity"
-                ]
-            )
-        );
-
-
-    return event;
+    markersLayer =
+        L.layerGroup().addTo(map);
 
 }
 
 
 /* =========================================================
-   GET VALUE
+   LOAD PREDICTION DATA
 ========================================================= */
 
-function getValue(row, names) {
+async function loadPredictionData() {
 
-    for (const name of names) {
+    try {
 
-        if (
-            Object.prototype.hasOwnProperty.call(
-                row,
-                name
-            )
-        ) {
+        const response =
+            await fetch(
+                "predictions.csv"
+            );
 
-            const value = row[name];
 
-            if (
-                value !== undefined &&
-                value !== null &&
-                String(value).trim() !== ""
+        if (!response.ok) {
+
+            throw new Error(
+                "Unable to load predictions.csv"
+            );
+
+        }
+
+
+        const csvText =
+            await response.text();
+
+
+        allEvents =
+            parseCSV(csvText);
+
+
+        filteredEvents =
+            [...allEvents];
+
+
+        updateDashboard();
+
+        renderMapMarkers();
+
+    }
+
+    catch (error) {
+
+        console.error(
+            "Data loading error:",
+            error
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   CSV PARSER
+========================================================= */
+
+function parseCSV(
+    text
+) {
+
+    const lines =
+        text
+            .trim()
+            .split(/\r?\n/);
+
+
+    if (lines.length < 2) {
+
+        return [];
+
+    }
+
+
+    const headers =
+        parseCSVLine(
+            lines[0]
+        );
+
+
+    const rows = [];
+
+
+    for (
+        let i = 1;
+        i < lines.length;
+        i++
+    ) {
+
+        if (!lines[i].trim()) {
+
+            continue;
+
+        }
+
+
+        const values =
+            parseCSVLine(
+                lines[i]
+            );
+
+
+        const row = {};
+
+
+        headers.forEach(
+            function (
+                header,
+                index
             ) {
 
-                return String(value).trim();
+                row[header] =
+                    values[index] ??
+                    "";
+
+            }
+        );
+
+
+        rows.push(row);
+
+    }
+
+
+    return rows;
+
+}
+
+
+/* =========================================================
+   CSV LINE PARSER
+========================================================= */
+
+function parseCSVLine(
+    line
+) {
+
+    const result = [];
+
+    let current = "";
+
+    let insideQuotes = false;
+
+
+    for (
+        let i = 0;
+        i < line.length;
+        i++
+    ) {
+
+        const char =
+            line[i];
+
+
+        if (
+            char === '"'
+        ) {
+
+            if (
+                insideQuotes &&
+                line[i + 1] === '"'
+            ) {
+
+                current += '"';
+
+                i++;
+
+            }
+
+            else {
+
+                insideQuotes =
+                    !insideQuotes;
 
             }
 
         }
 
-    }
+        else if (
+            char === "," &&
+            !insideQuotes
+        ) {
 
-    return "";
+            result.push(
+                current.trim()
+            );
 
-}
+            current = "";
 
+        }
 
-/* =========================================================
-   NUMBER PARSER
-========================================================= */
+        else {
 
-function parseNumber(value) {
+            current += char;
 
-    if (
-        value === undefined ||
-        value === null ||
-        String(value).trim() === ""
-    ) {
-
-        return null;
+        }
 
     }
 
 
-    const cleaned = String(value)
-        .replace(/,/g, "")
-        .trim();
-
-
-    const number = Number(cleaned);
-
-
-    if (Number.isFinite(number)) {
-
-        return number;
-
-    }
-
-
-    return null;
-
-}
-
-
-/* =========================================================
-   CONFIDENCE PARSER
-
-   Handles:
-
-   0.91       -> 91
-   91         -> 91
-   "91%"      -> 91
-   "0.91%"    -> 0.91
-
-   Missing -> null
-
-   NEVER -> 0
-========================================================= */
-
-function parseConfidence(value) {
-
-    if (
-        value === undefined ||
-        value === null
-    ) {
-
-        return null;
-
-    }
-
-
-    let text = String(value)
-        .trim();
-
-
-    if (text === "") {
-
-        return null;
-
-    }
-
-
-    const hasPercent =
-        text.includes("%");
-
-
-    text = text
-        .replace(/%/g, "")
-        .replace(/,/g, "")
-        .trim();
-
-
-    let number = Number(text);
-
-
-    if (!Number.isFinite(number)) {
-
-        return null;
-
-    }
-
-
-    /*
-       If the value is a probability between 0 and 1,
-       convert it to percentage.
-    */
-
-    if (
-        number >= 0 &&
-        number <= 1 &&
-        !hasPercent
-    ) {
-
-        number *= 100;
-
-    }
-
-
-    /*
-       Keep confidence within 0–100.
-    */
-
-    number = Math.max(
-        0,
-        Math.min(
-            100,
-            number
-        )
+    result.push(
+        current.trim()
     );
 
 
-    return number;
+    return result;
 
 }
 
 
 /* =========================================================
-   VALID EVENT
-========================================================= */
-
-function isValidEvent(event) {
-
-    return (
-        event.source_id &&
-        Number.isFinite(event.latitude) &&
-        Number.isFinite(event.longitude)
-    );
-
-}
-
-
-/* =========================================================
-   DASHBOARD
+   DASHBOARD UPDATE
 ========================================================= */
 
 function updateDashboard() {
+
+    updateStatistics();
+
+    updateEventTable();
+
+    updateEventCounts();
+
+}
+
+
+/* =========================================================
+   UPDATE STATISTICS
+========================================================= */
+
+function updateStatistics() {
 
     const total =
         filteredEvents.length;
@@ -831,7 +324,7 @@ function updateDashboard() {
         filteredEvents.filter(
             event =>
                 normalizeType(
-                    event.predicted_event_type
+                    event.event_type
                 ) === "Industrial"
         ).length;
 
@@ -840,7 +333,7 @@ function updateDashboard() {
         filteredEvents.filter(
             event =>
                 normalizeType(
-                    event.predicted_event_type
+                    event.event_type
                 ) === "Forest/Natural"
         ).length;
 
@@ -849,79 +342,123 @@ function updateDashboard() {
         filteredEvents.filter(
             event =>
                 normalizeType(
-                    event.predicted_event_type
+                    event.event_type
                 ) === "Agricultural"
         ).length;
 
 
-    const other =
+    const persistent =
         filteredEvents.filter(
             event =>
-                normalizeType(
-                    event.predicted_event_type
-                ) === "Other"
+                String(
+                    event.persistence ||
+                    event.persistent ||
+                    ""
+                )
+                .toLowerCase() ===
+                "persistent"
         ).length;
 
 
     setText(
-        "total-sources",
+        "total-events",
         total
     );
 
 
     setText(
-        "industrial-count",
+        "industrial-events",
         industrial
     );
 
 
     setText(
-        "forest-count",
+        "forest-events",
         forest
     );
 
 
     setText(
-        "agricultural-count",
+        "agricultural-events",
         agricultural
     );
 
 
     setText(
-        "other-count",
-        other
-    );
-
-
-    setText(
-        "visible-count",
-        `${total} EVENTS`
+        "persistent-events",
+        persistent
     );
 
 }
 
 
 /* =========================================================
-   TYPE NORMALIZATION
+   SAFE TEXT UPDATE
 ========================================================= */
 
-function normalizeType(type) {
+function setText(
+    id,
+    value
+) {
 
-    if (!type) {
+    const element =
+        document.getElementById(
+            id
+        );
 
-        return "Other";
+
+    if (element) {
+
+        element.textContent =
+            value;
 
     }
 
+}
+
+
+/* =========================================================
+   EVENT COUNTS
+========================================================= */
+
+function updateEventCounts() {
+
+    const count =
+        document.getElementById(
+            "event-count"
+        );
+
+
+    if (count) {
+
+        count.textContent =
+            `${filteredEvents.length} EVENTS`;
+
+    }
+
+}
+
+
+/* =========================================================
+   NORMALIZE EVENT TYPE
+========================================================= */
+
+function normalizeType(
+    type
+) {
 
     const value =
-        String(type)
-            .trim()
-            .toLowerCase();
+        String(
+            type || ""
+        )
+        .trim()
+        .toLowerCase();
 
 
     if (
-        value.includes("industrial")
+        value.includes(
+            "industrial"
+        )
     ) {
 
         return "Industrial";
@@ -930,8 +467,15 @@ function normalizeType(type) {
 
 
     if (
-        value.includes("forest") ||
-        value.includes("natural")
+        value.includes(
+            "forest"
+        ) ||
+        value.includes(
+            "natural"
+        ) ||
+        value.includes(
+            "wildfire"
+        )
     ) {
 
         return "Forest/Natural";
@@ -940,11 +484,26 @@ function normalizeType(type) {
 
 
     if (
-        value.includes("agricultural") ||
-        value.includes("agriculture")
+        value.includes(
+            "agricultural"
+        ) ||
+        value.includes(
+            "agriculture"
+        )
     ) {
 
         return "Agricultural";
+
+    }
+
+
+    if (
+        value.includes(
+            "persistent"
+        )
+    ) {
+
+        return "Persistent";
 
     }
 
@@ -955,163 +514,36 @@ function normalizeType(type) {
 
 
 /* =========================================================
-   LAND COVER FILTER
+   EVENT COLOR
 ========================================================= */
 
-function populateLandCoverFilter() {
+function getEventColor(
+    type
+) {
 
-    const select =
-        document.getElementById(
-            "landcover-filter"
-        );
+    switch (type) {
 
+        case "Industrial":
 
-    if (!select) return;
+            return "#ef4444";
 
+        case "Forest/Natural":
 
-    select.innerHTML = `
-        <option value="ALL">
-            All Land Covers
-        </option>
-    `;
+            return "#22c55e";
 
+        case "Agricultural":
 
-    const values = [
-        ...new Set(
-            allEvents
-                .map(event => event.landcover)
-                .filter(
-                    value =>
-                        value &&
-                        value !== "Unknown"
-                )
-        )
-    ].sort();
+            return "#f59e0b";
 
+        case "Persistent":
 
-    values.forEach(value => {
+            return "#a855f7";
 
-        const option =
-            document.createElement(
-                "option"
-            );
+        default:
 
+            return "#38bdf8";
 
-        option.value = value;
-
-        option.textContent = value;
-
-
-        select.appendChild(
-            option
-        );
-
-    });
-
-}
-
-
-/* =========================================================
-   FILTERS
-========================================================= */
-
-function applyFilters() {
-
-    const type =
-        document.getElementById(
-            "type-filter"
-        ).value;
-
-
-    const search =
-        document.getElementById(
-            "search-input"
-        ).value
-            .trim()
-            .toLowerCase();
-
-
-    const landcover =
-        document.getElementById(
-            "landcover-filter"
-        ).value;
-
-
-    const minimumConfidence =
-        Number(
-            document.getElementById(
-                "confidence-filter"
-            ).value
-        );
-
-
-    filteredEvents =
-        allEvents.filter(event => {
-
-
-            const normalizedType =
-                normalizeType(
-                    event.predicted_event_type
-                );
-
-
-            const matchesType =
-                type === "ALL" ||
-                normalizedType === type;
-
-
-            const matchesSearch =
-                !search ||
-                event.source_id
-                    .toLowerCase()
-                    .includes(search);
-
-
-            const matchesLandcover =
-                landcover === "ALL" ||
-                event.landcover === landcover;
-
-
-            /*
-               IMPORTANT:
-
-               Missing confidence should NOT be treated
-               as 0 automatically.
-
-               When a confidence filter greater than 0
-               is selected, events without confidence
-               are excluded.
-
-               With "Any Confidence", they remain visible.
-            */
-
-            const matchesConfidence =
-                minimumConfidence === 0
-                    ? true
-                    : (
-                        Number.isFinite(
-                            event.confidence
-                        ) &&
-                        event.confidence >=
-                            minimumConfidence
-                    );
-
-
-            return (
-                matchesType &&
-                matchesSearch &&
-                matchesLandcover &&
-                matchesConfidence
-            );
-
-        });
-
-
-    updateDashboard();
-
-    renderMarkers();
-
-    renderTable();
+    }
 
 }
 
@@ -1120,1153 +552,97 @@ function applyFilters() {
    MAP MARKERS
 ========================================================= */
 
-function renderMarkers() {
+function renderMapMarkers() {
 
-    if (!markersLayer) return;
+    if (!markersLayer) {
+
+        return;
+
+    }
 
 
     markersLayer.clearLayers();
 
 
-    const bounds = [];
-
-
-    filteredEvents.forEach(event => {
-
-        const type =
-            normalizeType(
-                event.predicted_event_type
-            );
-
-
-        const marker =
-            L.circleMarker(
-                [
-                    event.latitude,
-                    event.longitude
-                ],
-                {
-
-                    radius: 7,
-
-                    fillColor:
-                        getEventColor(type),
-
-                    color: "#ffffff",
-
-                    weight: 1,
-
-                    opacity: 0.9,
-
-                    fillOpacity: 0.85
-
-                }
-            );
-
-
-        marker.bindPopup(
-            createPopup(event)
-        );
-
-
-        marker.on(
-            "click",
-            () => {
-
-                showEventDetails(
-                    event
-                );
-
-            }
-        );
-
-
-        marker.addTo(
-            markersLayer
-        );
-
-
-        bounds.push(
-            [
-                event.latitude,
-                event.longitude
-            ]
-        );
-
-    });
-
-
-    if (
-        bounds.length > 0
-    ) {
-
-        map.fitBounds(
-            bounds,
-            {
-                padding: [
-                    30,
-                    30
-                ],
-                maxZoom: 10
-            }
-        );
-
-    }
-
-}
-
-
-/* =========================================================
-   EVENT COLOR
-========================================================= */
-
-function getEventColor(type) {
-
-    switch (type) {
-
-        case "Industrial":
-            return "#ff4d5a";
-
-        case "Forest/Natural":
-            return "#22c55e";
-
-        case "Agricultural":
-            return "#f59e0b";
-
-        default:
-            return "#94a3b8";
-
-    }
-
-}
-
-
-/* =========================================================
-   BADGE
-========================================================= */
-
-function getBadgeClass(type) {
-
-    switch (type) {
-
-        case "Industrial":
-            return "badge-industrial";
-
-        case "Forest/Natural":
-            return "badge-forest";
-
-        case "Agricultural":
-            return "badge-agricultural";
-
-        default:
-            return "badge-other";
-
-    }
-
-}
-
-
-/* =========================================================
-   TABLE
-========================================================= */
-
-function renderTable() {
-
-    const tbody =
-        document.getElementById(
-            "table-body"
-        );
-
-
-    if (!tbody) return;
-
-
-    tbody.innerHTML = "";
-
-
-    if (
-        filteredEvents.length === 0
-    ) {
-
-        tbody.innerHTML = `
-
-            <tr>
-
-                <td
-                    colspan="9"
-                    class="empty-table"
-                >
-
-                    No thermal sources match
-                    the selected filters.
-
-                </td>
-
-            </tr>
-
-        `;
-
-        return;
-
-    }
-
-
-    filteredEvents.forEach(event => {
-
-        const row =
-            document.createElement(
-                "tr"
-            );
-
-
-        const type =
-            normalizeType(
-                event.predicted_event_type
-            );
-
-
-        const viewButton =
-            document.createElement(
-                "button"
-            );
-
-
-        viewButton.type = "button";
-
-        viewButton.className =
-            "view-button";
-
-        viewButton.textContent =
-            "VIEW";
-
-
-        /*
-           IMPORTANT:
-
-           Use addEventListener instead of
-           inline onclick.
-
-           This makes VIEW reliable.
-        */
-
-        viewButton.addEventListener(
-            "click",
-            function(e) {
-
-                e.stopPropagation();
-
-                showEventDetails(
-                    event
-                );
-
-            }
-        );
-
-
-        const actionCell =
-            document.createElement(
-                "td"
-            );
-
-
-        actionCell.appendChild(
-            viewButton
-        );
-
-
-        row.innerHTML = `
-
-            <td>
-
-                <span class="source-id">
-
-                    ${escapeHTML(
-                        event.source_id
-                    )}
-
-                </span>
-
-            </td>
-
-
-            <td>
-
-                <span class="
-                    event-badge
-                    ${getBadgeClass(type)}
-                ">
-
-                    ${escapeHTML(type)}
-
-                </span>
-
-            </td>
-
-
-            <td>
-
-                <span class="confidence-text">
-
-                    ${formatConfidence(
-                        event.confidence
-                    )}
-
-                </span>
-
-            </td>
-
-
-            <td>
-
-                ${formatCoordinate(
-                    event.latitude
-                )}
-
-            </td>
-
-
-            <td>
-
-                ${formatCoordinate(
-                    event.longitude
-                )}
-
-            </td>
-
-
-            <td>
-
-                ${escapeHTML(
-                    event.landcover
-                )}
-
-            </td>
-
-
-            <td>
-
-                ${formatNumber(
-                    event.mean_frp
-                )}
-
-            </td>
-
-
-            <td>
-
-                ${
-                    Number.isFinite(
-                        event.active_days
-                    )
-                    ?
-                    `${formatNumber(
-                        event.active_days
-                    )} days`
-                    :
-                    "—"
-                }
-
-            </td>
-
-        `;
-
-
-        row.appendChild(
-            actionCell
-        );
-
-
-        /*
-           Clicking anywhere on the row
-           except VIEW opens details.
-        */
-
-        row.addEventListener(
-            "click",
-            function() {
-
-                showEventDetails(
-                    event
-                );
-
-            }
-        );
-
-
-        tbody.appendChild(
-            row
-        );
-
-    });
-
-}
-
-
-/* =========================================================
-   VIEW EVENT
-========================================================= */
-
-function showEventById(sourceId) {
-
-    const event =
-        allEvents.find(
-            e =>
-                String(e.source_id) ===
-                String(sourceId)
-        );
-
-
-    if (event) {
-
-        showEventDetails(
+    filteredEvents.forEach(
+        function (
             event
-        );
-
-    }
-
-}
-
-
-/* =========================================================
-   EVENT DETAILS
-========================================================= */
-
-function showEventDetails(event) {
-
-    const container =
-        document.getElementById(
-            "details-content"
-        );
-
-
-    const sourceLabel =
-        document.getElementById(
-            "selected-source-label"
-        );
-
-
-    if (!container) return;
-
-
-    if (sourceLabel) {
-
-        sourceLabel.textContent =
-            event.source_id;
-
-    }
-
-
-    const type =
-        normalizeType(
-            event.predicted_event_type
-        );
-
-
-    const color =
-        getEventColor(type);
-
-
-    const alertLevel =
-        getAlertLevel(
-            type,
-            event.confidence
-        );
-
-
-    container.className =
-        "details-content";
-
-
-    container.innerHTML = `
-
-        <div class="detail-layout">
-
-
-            <div
-                class="classification-box"
-                style="--event-color:${color}"
-            >
-
-                <div class="classification-label">
-
-                    AI EVENT CLASSIFICATION
-
-                </div>
-
-
-                <div
-                    class="classification-name"
-                    style="color:${color}"
-                >
-
-                    ${escapeHTML(type)}
-
-                </div>
-
-
-                <div class="classification-confidence">
-
-                    AI Confidence:
-
-                    <strong>
-
-                        ${formatConfidence(
-                            event.confidence
-                        )}
-
-                    </strong>
-
-                </div>
-
-
-                <div class="confidence-track">
-
-                    <div
-                        class="confidence-fill"
-                        style="
-                            width:${confidenceWidth(
-                                event.confidence
-                            )}%;
-                            background:${color};
-                        "
-                    ></div>
-
-                </div>
-
-
-                <div class="
-                    detail-alert-status
-                    ${alertLevel.toLowerCase()}
-                ">
-
-                    ${getAlertDisplayText(
-                        type,
-                        event.confidence
-                    )}
-
-                </div>
-
-            </div>
-
-
-            <div class="detail-grid">
-
-
-                ${detailItem(
-                    "Source ID",
-                    event.source_id
-                )}
-
-
-                ${detailItem(
-                    "Latitude",
-                    formatCoordinate(
-                        event.latitude
-                    )
-                )}
-
-
-                ${detailItem(
-                    "Longitude",
-                    formatCoordinate(
-                        event.longitude
-                    )
-                )}
-
-
-                ${detailItem(
-                    "Mean FRP",
-                    formatNumber(
-                        event.mean_frp
-                    )
-                )}
-
-
-                ${detailItem(
-                    "Maximum FRP",
-                    formatNumber(
-                        event.max_frp
-                    )
-                )}
-
-
-                ${detailItem(
-                    "Mean Brightness",
-                    formatNumber(
-                        event.mean_brightness
-                    )
-                )}
-
-
-                ${detailItem(
-                    "Maximum Brightness",
-                    formatNumber(
-                        event.max_brightness
-                    )
-                )}
-
-
-                ${detailItem(
-                    "Land Cover",
-                    event.landcover
-                )}
-
-
-                ${detailItem(
-                    "Nearest Facility",
-                    event.nearest_facility_type
-                )}
-
-
-                ${detailItem(
-                    "Distance to Industry",
-                    formatDistance(
-                        event.mean_distance_industry
-                    )
-                )}
-
-
-                ${detailItem(
-                    "Facilities ≤1 km",
-                    formatNumber(
-                        event.facilities_1km
-                    )
-                )}
-
-
-                ${detailItem(
-                    "Facilities ≤5 km",
-                    formatNumber(
-                        event.facilities_5km
-                    )
-                )}
-
-
-                ${detailItem(
-                    "Total Detections",
-                    formatNumber(
-                        event.total_detections
-                    )
-                )}
-
-
-                ${detailItem(
-                    "Active Days",
-                    formatNumber(
-                        event.active_days
-                    )
-                )}
-
-
-                ${detailItem(
-                    "Observation Span",
-                    formatDays(
-                        event.observation_span_days
-                    )
-                )}
-
-
-                ${detailItem(
-                    "Recurrence Rate",
-                    formatNumber(
-                        event.recurrence_rate
-                    )
-                )}
-
-
-                ${detailItem(
-                    "Temporal Regularity",
-                    formatNumber(
-                        event.temporal_regularity
-                    )
-                )}
-
-            </div>
-
-        </div>
-
-    `;
-
-
-    const detailsPanel =
-        document.querySelector(
-            ".details-panel"
-        );
-
-
-    if (detailsPanel) {
-
-        detailsPanel.scrollIntoView({
-            behavior: "smooth",
-            block: "start"
-        });
-
-    }
-
-}
-
-
-/* =========================================================
-   DETAIL ITEM
-========================================================= */
-
-function detailItem(label, value) {
-
-    return `
-
-        <div class="detail-item">
-
-            <span>
-                ${escapeHTML(label)}
-            </span>
-
-            <strong>
-
-                ${
-                    value === null ||
-                    value === undefined ||
-                    value === ""
-                        ? "—"
-                        : escapeHTML(
-                            String(value)
-                        )
-                }
-
-            </strong>
-
-        </div>
-
-    `;
-
-}
-
-
-/* =========================================================
-   ALERT LEVEL
-
-   THIS IS THE EXACT CONDITION YOU REQUESTED.
-========================================================= */
-
-function getAlertLevel(
-    eventType,
-    confidence
-) {
-
-    const normalizedType =
-        normalizeType(eventType);
-
-
-    /*
-       Missing confidence is NOT LOW.
-       It is simply unavailable.
-
-       This prevents false "LOW RISK"
-       claims.
-    */
-
-    if (
-        normalizedType !==
-        "Industrial"
-    ) {
-
-        return "LOW";
-
-    }
-
-
-    if (
-        !Number.isFinite(
-            confidence
-        )
-    ) {
-
-        return "UNKNOWN";
-
-    }
-
-
-    if (
-        confidence >=
-        ALERT_RULES.HIGH
-    ) {
-
-        return "HIGH";
-
-    }
-
-
-    if (
-        confidence >=
-        ALERT_RULES.MEDIUM
-    ) {
-
-        return "MEDIUM";
-
-    }
-
-
-    return "LOW";
-
-}
-
-
-/* =========================================================
-   ALERT DISPLAY TEXT
-========================================================= */
-
-function getAlertDisplayText(
-    type,
-    confidence
-) {
-
-    const level =
-        getAlertLevel(
-            type,
-            confidence
-        );
-
-
-    if (level === "HIGH") {
-
-        return `
-            <i class="fa-solid fa-triangle-exclamation"></i>
-            HIGH ALERT — Industrial Fire
-        `;
-
-    }
-
-
-    if (level === "MEDIUM") {
-
-        return `
-            <i class="fa-solid fa-bell"></i>
-            MEDIUM ALERT — Industrial Fire
-        `;
-
-    }
-
-
-    if (level === "UNKNOWN") {
-
-        return `
-            <i class="fa-solid fa-circle-question"></i>
-            ALERT STATUS UNAVAILABLE — Confidence not provided
-        `;
-
-    }
-
-
-    return `
-        <i class="fa-solid fa-circle-check"></i>
-        NO INDUSTRIAL FIRE ALERT
-    `;
-
-}
-
-
-/* =========================================================
-   UPDATE ALERTS
-========================================================= */
-
-function updateAlerts() {
-
-    alerts = [];
-
-
-    allEvents.forEach(event => {
-
-        const type =
-            normalizeType(
-                event.predicted_event_type
-            );
-
-
-        const level =
-            getAlertLevel(
-                type,
-                event.confidence
-            );
-
-
-        /*
-           ONLY HIGH and MEDIUM Industrial Fire
-           events become alerts.
-        */
-
-        if (
-            level === "HIGH" ||
-            level === "MEDIUM"
         ) {
 
-            alerts.push({
-
-                event: event,
-
-                level: level
-
-            });
-
-        }
-
-    });
-
-
-    /*
-       Highest confidence first.
-    */
-
-    alerts.sort(
-        (a, b) => {
-
-            return (
-                b.event.confidence -
-                a.event.confidence
-            );
-
-        }
-    );
-
-
-    const highCount =
-        alerts.filter(
-            alert =>
-                alert.level === "HIGH"
-        ).length;
-
-
-    const mediumCount =
-        alerts.filter(
-            alert =>
-                alert.level === "MEDIUM"
-        ).length;
-
-
-    const otherCount =
-        allEvents.length -
-        alerts.length;
-
-
-    setText(
-        "alert-count",
-        alerts.length
-    );
-
-
-    setText(
-        "high-alert-count",
-        highCount
-    );
-
-
-    setText(
-        "medium-alert-count",
-        mediumCount
-    );
-
-
-    setText(
-        "normal-event-count",
-        otherCount
-    );
-
-
-    const button =
-        document.getElementById(
-            "alert-button"
-        );
-
-
-    if (button) {
-
-        button.classList.toggle(
-            "has-alert",
-            alerts.length > 0
-        );
-
-    }
-
-
-    renderAlertList();
-
-}
-
-
-/* =========================================================
-   ALERT LIST
-========================================================= */
-
-function renderAlertList() {
-
-    const list =
-        document.getElementById(
-            "alert-list"
-        );
-
-
-    if (!list) return;
-
-
-    if (
-        alerts.length === 0
-    ) {
-
-        list.innerHTML = `
-
-            <div class="no-alerts">
-
-                <i class="
-                    fa-solid
-                    fa-shield-halved
-                "></i>
-
-                <strong>
-                    NO ACTIVE INDUSTRIAL FIRE ALERTS
-                </strong>
-
-                <span>
-                    Alerts appear when an Industrial Fire
-                    has an AI confidence score of 60% or higher.
-                </span>
-
-            </div>
-
-        `;
-
-        return;
-
-    }
-
-
-    list.innerHTML = "";
-
-
-    alerts.forEach(
-        ({
-            event,
-            level
-        }) => {
-
-
-            const item =
-                document.createElement(
-                    "div"
+            const latitude =
+                parseFloat(
+                    event.latitude
                 );
 
 
-            item.className =
-                `alert-item ${level.toLowerCase()}`;
-
-
-            const icon =
-                level === "HIGH"
-                    ?
-                    "fa-triangle-exclamation"
-                    :
-                    "fa-bell";
-
-
-            item.innerHTML = `
-
-                <div class="alert-item-icon">
-
-                    <i class="
-                        fa-solid
-                        ${icon}
-                    "></i>
-
-                </div>
-
-
-                <div class="alert-item-main">
-
-                    <div class="alert-item-top">
-
-                        <span class="alert-level">
-
-                            ${level} ALERT
-
-                        </span>
-
-
-                        <span class="alert-confidence">
-
-                            ${formatConfidence(
-                                event.confidence
-                            )}
-
-                        </span>
-
-                    </div>
-
-
-                    <strong>
-
-                        ${escapeHTML(
-                            event.source_id
-                        )}
-
-                    </strong>
-
-
-                    <span>
-
-                        Industrial Fire •
-                        ${escapeHTML(
-                            event.landcover
-                        )}
-
-                    </span>
-
-
-                    <small>
-
-                        ${formatCoordinate(
-                            event.latitude
-                        )}
-                        ,
-                        ${formatCoordinate(
-                            event.longitude
-                        )}
-
-                    </small>
-
-                </div>
-
-
-                <button
-                    class="alert-view-button"
-                    type="button"
-                >
-
-                    VIEW
-
-                </button>
-
-            `;
-
-
-            const viewButton =
-                item.querySelector(
-                    ".alert-view-button"
+            const longitude =
+                parseFloat(
+                    event.longitude
                 );
 
 
-            viewButton.addEventListener(
-                "click",
-                () => {
+            if (
+                Number.isNaN(
+                    latitude
+                ) ||
+                Number.isNaN(
+                    longitude
+                )
+            ) {
 
-                    showEventDetails(
-                        event
-                    );
+                return;
 
-                    closeAlertCenter();
+            }
 
-                }
+
+            const type =
+                normalizeType(
+                    event.event_type
+                );
+
+
+            const color =
+                getEventColor(
+                    type
+                );
+
+
+            const marker =
+                L.circleMarker(
+                    [
+                        latitude,
+                        longitude
+                    ],
+                    {
+
+                        radius: 7,
+
+                        fillColor:
+                            color,
+
+                        color:
+                            color,
+
+                        weight: 2,
+
+                        opacity: 0.9,
+
+                        fillOpacity: 0.75
+
+                    }
+                );
+
+
+            marker.bindPopup(
+                createPopupContent(
+                    event,
+                    type
+                )
             );
 
 
-            list.appendChild(
-                item
+            marker.addTo(
+                markersLayer
             );
 
         }
@@ -2276,76 +652,17 @@ function renderAlertList() {
 
 
 /* =========================================================
-   ALERT CENTER
+   POPUP CONTENT
 ========================================================= */
 
-function toggleAlertCenter() {
+function createPopupContent(
+    event,
+    type
+) {
 
-    const center =
-        document.getElementById(
-            "alert-center"
-        );
-
-
-    if (!center) return;
-
-
-    center.classList.toggle(
-        "hidden"
-    );
-
-
-    if (
-        !center.classList.contains(
-            "hidden"
-        )
-    ) {
-
-        renderAlertList();
-
-
-        center.scrollIntoView({
-            behavior: "smooth",
-            block: "start"
-        });
-
-    }
-
-}
-
-
-/* =========================================================
-   CLOSE ALERT CENTER
-========================================================= */
-
-function closeAlertCenter() {
-
-    const center =
-        document.getElementById(
-            "alert-center"
-        );
-
-
-    if (center) {
-
-        center.classList.add(
-            "hidden"
-        );
-
-    }
-
-}
-
-
-/* =========================================================
-   POPUP
-========================================================= */
-
-function createPopup(event) {
-
-    const type =
-        normalizeType(
-            event.predicted_event_type
+    const confidence =
+        getConfidence(
+            event
         );
 
 
@@ -2353,74 +670,68 @@ function createPopup(event) {
 
         <div class="map-popup">
 
-            <div class="popup-kicker">
-                THERMAL SOURCE
-            </div>
-
-
-            <strong>
-                ${escapeHTML(
-                    event.source_id
-                )}
-            </strong>
-
-
-            <hr>
-
-
-            <div>
-
-                <b>AI Classification:</b>
+            <div class="popup-title">
 
                 ${escapeHTML(type)}
 
             </div>
 
 
-            <div>
+            <div class="popup-row">
 
-                <b>Confidence:</b>
+                <span>Latitude</span>
 
-                ${formatConfidence(
-                    event.confidence
-                )}
-
-            </div>
-
-
-            <div>
-
-                <b>Land Cover:</b>
-
-                ${escapeHTML(
-                    event.landcover
-                )}
+                <strong>
+                    ${escapeHTML(
+                        event.latitude || "—"
+                    )}
+                </strong>
 
             </div>
 
 
-            <div>
+            <div class="popup-row">
 
-                <b>Mean FRP:</b>
+                <span>Longitude</span>
 
-                ${formatNumber(
-                    event.mean_frp
-                )}
+                <strong>
+                    ${escapeHTML(
+                        event.longitude || "—"
+                    )}
+                </strong>
 
             </div>
 
 
-            <button
-                class="popup-view-button"
-                type="button"
-                data-source-id="${escapeHTML(
-                    event.source_id
-                )}"
-            >
+            <div class="popup-row">
 
-                VIEW SOURCE DETAILS
+                <span>Confidence</span>
 
-            </button>
+                <strong>
+                    ${
+                        confidence === null
+                            ? "—"
+                            : confidence.toFixed(1) + "%"
+                    }
+                </strong>
+
+            </div>
+
+
+            <div class="popup-row">
+
+                <span>FRP</span>
+
+                <strong>
+                    ${escapeHTML(
+                        event.mean_frp ||
+                        event.frp_mw ||
+                        "—"
+                    )}
+                </strong>
+
+            </div>
+
 
         </div>
 
@@ -2430,36 +741,524 @@ function createPopup(event) {
 
 
 /* =========================================================
-   POPUP EVENT DELEGATION
+   CONFIDENCE HELPER
 ========================================================= */
 
-document.addEventListener(
-    "click",
-    function(event) {
+function getConfidence(
+    event
+) {
 
-        const button =
-            event.target.closest(
-                ".popup-view-button"
-            );
-
-
-        if (!button) return;
-
-
-        const sourceId =
-            button.dataset.sourceId;
+    let value =
+        event.confidence_pct ??
+        event.confidence ??
+        event.prediction_confidence ??
+        event.probability ??
+        event.score;
 
 
-        showEventById(
-            sourceId
-        );
+    if (
+        value === undefined ||
+        value === null ||
+        value === ""
+    ) {
+
+        return null;
 
     }
-);
+
+
+    value =
+        Number(value);
+
+
+    if (
+        Number.isNaN(
+            value
+        )
+    ) {
+
+        return null;
+
+    }
+
+
+    if (
+        value >= 0 &&
+        value <= 1
+    ) {
+
+        value *= 100;
+
+    }
+
+
+    return Math.max(
+        0,
+        Math.min(
+            100,
+            value
+        )
+    );
+
+}
 
 
 /* =========================================================
-   PREDICTION FORM
+   ESCAPE HTML
+========================================================= */
+
+function escapeHTML(
+    value
+) {
+
+    return String(
+        value ?? ""
+    )
+    .replace(
+        /&/g,
+        "&amp;"
+    )
+    .replace(
+        /</g,
+        "&lt;"
+    )
+    .replace(
+        />/g,
+        "&gt;"
+    )
+    .replace(
+        /"/g,
+        "&quot;"
+    )
+    .replace(
+        /'/g,
+        "&#039;"
+    );
+
+}
+
+
+/* =========================================================
+   EVENT TABLE
+========================================================= */
+
+function updateEventTable() {
+
+    const tbody =
+        document.getElementById(
+            "events-body"
+        );
+
+
+    if (!tbody) {
+
+        return;
+
+    }
+
+
+    tbody.innerHTML = "";
+
+
+    filteredEvents
+        .slice(0, 100)
+        .forEach(
+            function (
+                event
+            ) {
+
+                const row =
+                    document.createElement(
+                        "tr"
+                    );
+
+
+                const type =
+                    normalizeType(
+                        event.event_type
+                    );
+
+
+                const confidence =
+                    getConfidence(
+                        event
+                    );
+
+
+                row.innerHTML = `
+
+                    <td>
+                        ${escapeHTML(
+                            event.event_id ||
+                            event.source_id ||
+                            "—"
+                        )}
+                    </td>
+
+                    <td>
+                        ${escapeHTML(
+                            event.latitude ||
+                            "—"
+                        )}
+                    </td>
+
+                    <td>
+                        ${escapeHTML(
+                            event.longitude ||
+                            "—"
+                        )}
+                    </td>
+
+                    <td>
+                        <span
+                            class="event-badge"
+                            style="border-color:${getEventColor(type)}"
+                        >
+                            ${escapeHTML(type)}
+                        </span>
+                    </td>
+
+                    <td>
+                        ${
+                            confidence === null
+                                ? "—"
+                                : confidence.toFixed(1) + "%"
+                        }
+                    </td>
+
+                    <td>
+                        ${escapeHTML(
+                            event.acq_date ||
+                            event.detection_date ||
+                            "—"
+                        )}
+                    </td>
+
+                `;
+
+
+                tbody.appendChild(
+                    row
+                );
+
+            }
+        );
+
+}
+
+
+/* =========================================================
+   FILTER SETUP
+========================================================= */
+
+function setupEventListeners() {
+
+    const eventTypeFilter =
+        document.getElementById(
+            "event-type-filter"
+        );
+
+
+    if (eventTypeFilter) {
+
+        eventTypeFilter.addEventListener(
+            "change",
+            applyFilters
+        );
+
+    }
+
+
+    const landcoverFilter =
+        document.getElementById(
+            "landcover-filter"
+        );
+
+
+    if (landcoverFilter) {
+
+        landcoverFilter.addEventListener(
+            "change",
+            applyFilters
+        );
+
+    }
+
+
+    const confidenceFilter =
+        document.getElementById(
+            "confidence-filter"
+        );
+
+
+    if (confidenceFilter) {
+
+        confidenceFilter.addEventListener(
+            "change",
+            applyFilters
+        );
+
+    }
+
+
+    const searchInput =
+        document.getElementById(
+            "search-input"
+        );
+
+
+    if (searchInput) {
+
+        searchInput.addEventListener(
+            "input",
+            applyFilters
+        );
+
+    }
+
+
+    const resetButton =
+        document.getElementById(
+            "reset-btn"
+        );
+
+
+    if (resetButton) {
+
+        resetButton.addEventListener(
+            "click",
+            resetFilters
+        );
+
+    }
+
+
+    document
+        .getElementById(
+            "alert-button"
+        )
+        ?.addEventListener(
+            "click",
+            toggleAlertCenter
+        );
+
+
+    document
+        .getElementById(
+            "close-alerts"
+        )
+        ?.addEventListener(
+            "click",
+            toggleAlertCenter
+        );
+
+}
+
+
+/* =========================================================
+   FILTER EVENTS
+========================================================= */
+
+function applyFilters() {
+
+    const typeFilter =
+        document.getElementById(
+            "event-type-filter"
+        )?.value || "all";
+
+
+    const landcoverFilter =
+        document.getElementById(
+            "landcover-filter"
+        )?.value || "all";
+
+
+    const confidenceFilter =
+        document.getElementById(
+            "confidence-filter"
+        )?.value || "all";
+
+
+    const search =
+        document.getElementById(
+            "search-input"
+        )?.value
+        .trim()
+        .toLowerCase() || "";
+
+
+    filteredEvents =
+        allEvents.filter(
+            function (
+                event
+            ) {
+
+                const type =
+                    normalizeType(
+                        event.event_type
+                    );
+
+
+                if (
+                    typeFilter !== "all" &&
+                    type.toLowerCase() !==
+                    typeFilter.toLowerCase()
+                ) {
+
+                    return false;
+
+                }
+
+
+                const landcover =
+                    String(
+                        event.landcover_class ||
+                        event.landcover ||
+                        ""
+                    )
+                    .toLowerCase();
+
+
+                if (
+                    landcoverFilter !== "all" &&
+                    landcover !==
+                    landcoverFilter.toLowerCase()
+                ) {
+
+                    return false;
+
+                }
+
+
+                const confidence =
+                    getConfidence(
+                        event
+                    );
+
+
+                if (
+                    confidenceFilter !== "all" &&
+                    confidence !== null
+                ) {
+
+                    const threshold =
+                        Number(
+                            confidenceFilter
+                        );
+
+
+                    if (
+                        confidence <
+                        threshold
+                    ) {
+
+                        return false;
+
+                    }
+
+                }
+
+
+                if (
+                    search &&
+                    !JSON.stringify(
+                        event
+                    )
+                    .toLowerCase()
+                    .includes(
+                        search
+                    )
+                ) {
+
+                    return false;
+
+                }
+
+
+                return true;
+
+            }
+        );
+
+
+    updateDashboard();
+
+    renderMapMarkers();
+
+}
+
+
+/* =========================================================
+   RESET FILTERS
+========================================================= */
+
+function resetFilters() {
+
+    const ids = [
+
+        "event-type-filter",
+
+        "landcover-filter",
+
+        "confidence-filter",
+
+        "search-input"
+
+    ];
+
+
+    ids.forEach(
+        function (
+            id
+        ) {
+
+            const element =
+                document.getElementById(
+                    id
+                );
+
+
+            if (!element) {
+
+                return;
+
+            }
+
+
+            if (
+                element.tagName ===
+                "SELECT"
+            ) {
+
+                element.value =
+                    "all";
+
+            }
+
+            else {
+
+                element.value =
+                    "";
+
+            }
+
+        }
+    );
+
+
+    filteredEvents =
+        [...allEvents];
+
+
+    updateDashboard();
+
+    renderMapMarkers();
+
+}
+
+
+/* =========================================================
+   AI PREDICTION FORM
 ========================================================= */
 
 function setupPredictionForm() {
@@ -2475,9 +1274,12 @@ function setupPredictionForm() {
 
     form.addEventListener(
         "submit",
-        async function(event) {
+        async function (
+            event
+        ) {
 
             event.preventDefault();
+
 
             await sendPrediction();
 
@@ -2488,7 +1290,7 @@ function setupPredictionForm() {
 
 
 /* =========================================================
-   SEND PREDICTION
+   SEND PREDICTION TO BACKEND
 ========================================================= */
 
 async function sendPrediction() {
@@ -2499,7 +1301,7 @@ async function sendPrediction() {
         );
 
 
-    const originalHTML =
+    const originalText =
         button.innerHTML;
 
 
@@ -2508,11 +1310,7 @@ async function sendPrediction() {
 
     button.innerHTML = `
 
-        <i class="
-            fa-solid
-            fa-spinner
-            fa-spin
-        "></i>
+        <i class="fa-solid fa-spinner fa-spin"></i>
 
         ANALYZING...
 
@@ -2613,6 +1411,12 @@ async function sendPrediction() {
     };
 
 
+    console.log(
+        "Sending prediction:",
+        inputData
+    );
+
+
     try {
 
         const response =
@@ -2661,8 +1465,7 @@ async function sendPrediction() {
 
     }
 
-
-    catch(error) {
+    catch (error) {
 
         console.error(
             "Prediction error:",
@@ -2671,18 +1474,17 @@ async function sendPrediction() {
 
 
         showPredictionError(
-            "Backend connection failed. Make sure your AI backend is running on http://127.0.0.1:8000"
+            "Backend connection failed. Please verify that the deployed AI backend is online and that CORS allows this GitHub Pages site."
         );
 
     }
-
 
     finally {
 
         button.disabled = false;
 
         button.innerHTML =
-            originalHTML;
+            originalText;
 
     }
 
@@ -2693,7 +1495,9 @@ async function sendPrediction() {
    DISPLAY PREDICTION
 ========================================================= */
 
-function displayPredictionResult(result) {
+function displayPredictionResult(
+    result
+) {
 
     const resultBox =
         document.getElementById(
@@ -2731,6 +1535,10 @@ function displayPredictionResult(result) {
         );
 
 
+    /*
+       Supports common backend field names.
+    */
+
     const prediction =
         result.predicted_event_type ||
         result.event_type ||
@@ -2739,28 +1547,45 @@ function displayPredictionResult(result) {
         "Other";
 
 
-    const rawConfidence =
+    let confidence =
         result.confidence_pct ??
         result.confidence ??
         result.prediction_confidence ??
-        result.confidence_score ??
-        result.model_confidence ??
         result.probability ??
-        result.prediction_probability ??
-        null;
+        result.score ??
+        result.data?.confidence_pct ??
+        result.data?.confidence ??
+        result.result?.confidence_pct ??
+        result.result?.confidence ??
+        0;
 
 
-    /*
-       DO NOT default to zero.
-    */
+    confidence = Number(
+        confidence
+    );
 
-    const confidence =
-        parseConfidence(
-            rawConfidence
+
+    if (
+        confidence >= 0 &&
+        confidence <= 1
+    ) {
+
+        confidence *= 100;
+
+    }
+
+
+    confidence =
+        Math.max(
+            0,
+            Math.min(
+                100,
+                confidence
+            )
         );
 
 
-    const normalizedType =
+    const normalizedPrediction =
         normalizeType(
             prediction
         );
@@ -2768,34 +1593,28 @@ function displayPredictionResult(result) {
 
     const color =
         getEventColor(
-            normalizedType
+            normalizedPrediction
         );
 
 
     resultType.textContent =
-        normalizedType;
-
-
-    resultMessage.textContent =
-        getPredictionMessage(
-            normalizedType
-        );
+        normalizedPrediction;
 
 
     confidenceValue.textContent =
-        formatConfidence(
-            confidence
-        );
+        `${confidence.toFixed(1)}%`;
 
 
     confidenceFill.style.width =
-        `${confidenceWidth(
-            confidence
-        )}%`;
+        `${confidence}%`;
 
 
     confidenceFill.style.background =
         color;
+
+
+    confidenceFill.style.boxShadow =
+        `0 0 15px ${color}`;
 
 
     resultIcon.style.color =
@@ -2810,8 +1629,13 @@ function displayPredictionResult(result) {
         `${color}15`;
 
 
-    updatePredictionAlert(
-        normalizedType,
+    resultMessage.textContent =
+        getPredictionMessage(
+            normalizedPrediction
+        );
+
+
+    addPredictionAlert(
         confidence
     );
 
@@ -2827,132 +1651,15 @@ function displayPredictionResult(result) {
     });
 
 }
-
-
-/* =========================================================
-   PREDICTION ALERT
-========================================================= */
-
-function updatePredictionAlert(
-    type,
-    confidence
-) {
-
-    const badge =
-        document.getElementById(
-            "prediction-alert-badge"
-        );
-
-
-    if (!badge) return;
-
-
-    const level =
-        getAlertLevel(
-            type,
-            confidence
-        );
-
-
-    if (
-        level === "HIGH"
-    ) {
-
-        badge.className =
-            "prediction-alert-badge high";
-
-
-        badge.innerHTML = `
-
-            <i class="
-                fa-solid
-                fa-triangle-exclamation
-            "></i>
-
-            HIGH ALERT —
-            INDUSTRIAL FIRE
-
-        `;
-
-        return;
-
-    }
-
-
-    if (
-        level === "MEDIUM"
-    ) {
-
-        badge.className =
-            "prediction-alert-badge medium";
-
-
-        badge.innerHTML = `
-
-            <i class="
-                fa-solid
-                fa-bell
-            "></i>
-
-            MEDIUM ALERT —
-            INDUSTRIAL FIRE
-
-        `;
-
-        return;
-
-    }
-
-
-    if (
-        level === "UNKNOWN"
-    ) {
-
-        badge.className =
-            "prediction-alert-badge unknown";
-
-
-        badge.innerHTML = `
-
-            <i class="
-                fa-solid
-                fa-circle-question
-            "></i>
-
-            CONFIDENCE NOT AVAILABLE
-
-        `;
-
-        return;
-
-    }
-
-
-    badge.className =
-        "prediction-alert-badge low";
-
-
-    badge.innerHTML = `
-
-        <i class="
-            fa-solid
-            fa-circle-check
-        "></i>
-
-        NO INDUSTRIAL FIRE ALERT
-
-    `;
-
-}
-
-
 /* =========================================================
    PREDICTION MESSAGE
 ========================================================= */
 
-function getPredictionMessage(type) {
+function getPredictionMessage(
+    type
+) {
 
-    switch(type) {
+    switch (type) {
 
         case "Industrial":
 
@@ -2979,7 +1686,9 @@ function getPredictionMessage(type) {
    PREDICTION ERROR
 ========================================================= */
 
-function showPredictionError(message) {
+function showPredictionError(
+    message
+) {
 
     const resultBox =
         document.getElementById(
@@ -3011,6 +1720,12 @@ function showPredictionError(message) {
         );
 
 
+    const resultIcon =
+        document.getElementById(
+            "result-icon"
+        );
+
+
     resultType.textContent =
         "BACKEND OFFLINE";
 
@@ -3027,6 +1742,14 @@ function showPredictionError(message) {
         "0%";
 
 
+    resultIcon.style.color =
+        "#f59e0b";
+
+
+    resultIcon.style.borderColor =
+        "#f59e0b";
+
+
     resultBox.classList.remove(
         "hidden"
     );
@@ -3035,97 +1758,1053 @@ function showPredictionError(message) {
 
 
 /* =========================================================
-   RESET
+   ALERT SYSTEM
 ========================================================= */
 
-function resetFilters() {
+function addPredictionAlert(
+    confidence
+) {
 
-    document.getElementById(
-        "type-filter"
-    ).value = "ALL";
-
-
-    document.getElementById(
-        "search-input"
-    ).value = "";
-
-
-    document.getElementById(
-        "landcover-filter"
-    ).value = "ALL";
-
-
-    document.getElementById(
-        "confidence-filter"
-    ).value = "0";
-
-
-    filteredEvents =
-        [...allEvents];
-
-
-    updateDashboard();
-
-    renderMarkers();
-
-    renderTable();
-
-
-    document.getElementById(
-        "selected-source-label"
-    ).textContent =
-        "NO SOURCE SELECTED";
-
-
-    document.getElementById(
-        "details-content"
-    ).className =
-        "details-empty";
-
-
-    document.getElementById(
-        "details-content"
-    ).innerHTML = `
-
-        <i class="
-            fa-solid
-            fa-crosshairs
-        "></i>
-
-        <h3>
-            Select a thermal source
-        </h3>
-
-        <p>
-            Click a marker on the map or select
-            an event from the table to view AI
-            classification and source-level
-            information.
-        </p>
-
-    `;
-
-
-    updateAlerts();
+    const level =
+        getAlertLevel(
+            confidence
+        );
 
 
     if (
-        allEvents.length > 0
+        level === "none"
     ) {
 
-        map.fitBounds(
-            allEvents.map(
-                event => [
-                    event.latitude,
-                    event.longitude
-                ]
-            ),
+        return;
+
+    }
+
+
+    const now =
+        new Date();
+
+
+    alerts.unshift({
+
+        id:
+            Date.now(),
+
+        level:
+            level,
+
+        confidence:
+            confidence,
+
+        timestamp:
+            now,
+
+        message:
+            getAlertMessage(
+                level,
+                confidence
+            )
+
+    });
+
+
+    /*
+       Keep only the latest 20 alerts.
+    */
+
+    if (
+        alerts.length > 20
+    ) {
+
+        alerts =
+            alerts.slice(
+                0,
+                20
+            );
+
+    }
+
+
+    updateAlertBadge();
+
+    renderAlertCenter();
+
+}
+
+
+/* =========================================================
+   ALERT LEVEL
+========================================================= */
+
+function getAlertLevel(
+    confidence
+) {
+
+    if (
+        confidence >=
+        ALERT_THRESHOLDS.critical
+    ) {
+
+        return "critical";
+
+    }
+
+
+    if (
+        confidence >=
+        ALERT_THRESHOLDS.high
+    ) {
+
+        return "high";
+
+    }
+
+
+    if (
+        confidence >=
+        ALERT_THRESHOLDS.monitor
+    ) {
+
+        return "monitor";
+
+    }
+
+
+    return "none";
+
+}
+
+
+/* =========================================================
+   ALERT MESSAGE
+========================================================= */
+
+function getAlertMessage(
+    level,
+    confidence
+) {
+
+    const formatted =
+        confidence.toFixed(
+            1
+        );
+
+
+    switch (level) {
+
+        case "critical":
+
+            return `CRITICAL: High-confidence thermal event detected (${formatted}%). Immediate attention recommended.`;
+
+        case "high":
+
+            return `HIGH ALERT: Thermal event detected with ${formatted}% confidence.`;
+
+        case "monitor":
+
+            return `MONITOR: Thermal anomaly detected with ${formatted}% confidence.`;
+
+        default:
+
+            return "";
+
+    }
+
+}
+
+
+/* =========================================================
+   UPDATE ALERT BADGE
+========================================================= */
+
+function updateAlertBadge() {
+
+    const badge =
+        document.getElementById(
+            "alert-count"
+        );
+
+
+    if (!badge) {
+
+        return;
+
+    }
+
+
+    const criticalCount =
+        alerts.filter(
+            alert =>
+                alert.level ===
+                "critical"
+        ).length;
+
+
+    badge.textContent =
+        criticalCount ||
+        alerts.length;
+
+
+    if (
+        alerts.length === 0
+    ) {
+
+        badge.classList.add(
+            "hidden"
+        );
+
+    }
+
+    else {
+
+        badge.classList.remove(
+            "hidden"
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   TOGGLE ALERT CENTER
+========================================================= */
+
+function toggleAlertCenter() {
+
+    const panel =
+        document.getElementById(
+            "alert-center"
+        );
+
+
+    if (!panel) {
+
+        return;
+
+    }
+
+
+    panel.classList.toggle(
+        "hidden"
+    );
+
+
+    if (
+        !panel.classList.contains(
+            "hidden"
+        )
+    ) {
+
+        renderAlertCenter();
+
+    }
+
+}
+
+
+/* =========================================================
+   RENDER ALERT CENTER
+========================================================= */
+
+function renderAlertCenter() {
+
+    const container =
+        document.getElementById(
+            "alerts-list"
+        );
+
+
+    if (!container) {
+
+        return;
+
+    }
+
+
+    if (
+        alerts.length === 0
+    ) {
+
+        container.innerHTML = `
+
+            <div class="empty-alerts">
+
+                <i class="fa-solid fa-shield-check"></i>
+
+                <p>
+                    No active alerts
+                </p>
+
+            </div>
+
+        `;
+
+        return;
+
+    }
+
+
+    container.innerHTML =
+        alerts
+            .map(
+                function (
+                    alert
+                ) {
+
+                    const time =
+                        alert.timestamp
+                            .toLocaleTimeString();
+
+
+                    return `
+
+                        <div
+                            class="alert-item alert-${alert.level}"
+                        >
+
+                            <div
+                                class="alert-icon"
+                            >
+
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+
+                            </div>
+
+
+                            <div
+                                class="alert-content"
+                            >
+
+                                <div
+                                    class="alert-title"
+                                >
+
+                                    ${escapeHTML(
+                                        alert.level.toUpperCase()
+                                    )}
+
+                                </div>
+
+
+                                <div
+                                    class="alert-message"
+                                >
+
+                                    ${escapeHTML(
+                                        alert.message
+                                    )}
+
+                                </div>
+
+
+                                <div
+                                    class="alert-time"
+                                >
+
+                                    ${escapeHTML(
+                                        time
+                                    )}
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    `;
+
+                }
+            )
+            .join("");
+
+}
+
+
+/* =========================================================
+   CLEAR ALERTS
+========================================================= */
+
+function clearAlerts() {
+
+    alerts = [];
+
+    updateAlertBadge();
+
+    renderAlertCenter();
+
+}
+
+
+/* =========================================================
+   KEYBOARD SUPPORT
+========================================================= */
+
+document.addEventListener(
+    "keydown",
+    function (
+        event
+    ) {
+
+        if (
+            event.key ===
+            "Escape"
+        ) {
+
+            const panel =
+                document.getElementById(
+                    "alert-center"
+                );
+
+
+            if (
+                panel &&
+                !panel.classList.contains(
+                    "hidden"
+                )
+            ) {
+
+                panel.classList.add(
+                    "hidden"
+                );
+
+            }
+
+        }
+
+    }
+);
+
+
+/* =========================================================
+   MAP EVENT INTERACTION
+========================================================= */
+
+function focusEventOnMap(
+    event
+) {
+
+    if (
+        !map
+    ) {
+
+        return;
+
+    }
+
+
+    const latitude =
+        parseFloat(
+            event.latitude
+        );
+
+
+    const longitude =
+        parseFloat(
+            event.longitude
+        );
+
+
+    if (
+        Number.isNaN(
+            latitude
+        ) ||
+        Number.isNaN(
+            longitude
+        )
+    ) {
+
+        return;
+
+    }
+
+
+    map.setView(
+        [
+            latitude,
+            longitude
+        ],
+        10
+    );
+
+}
+
+
+/* =========================================================
+   MAP LEGEND
+========================================================= */
+
+function createMapLegend() {
+
+    const legend =
+        L.control({
+            position:
+                "bottomright"
+        });
+
+
+    legend.onAdd =
+        function () {
+
+            const div =
+                L.DomUtil.create(
+                    "div",
+                    "map-legend"
+                );
+
+
+            div.innerHTML = `
+
+                <div class="legend-title">
+                    EVENT TYPES
+                </div>
+
+
+                <div class="legend-item">
+
+                    <span
+                        class="legend-dot"
+                        style="background:#ef4444"
+                    ></span>
+
+                    Industrial
+
+                </div>
+
+
+                <div class="legend-item">
+
+                    <span
+                        class="legend-dot"
+                        style="background:#22c55e"
+                    ></span>
+
+                    Forest / Natural
+
+                </div>
+
+
+                <div class="legend-item">
+
+                    <span
+                        class="legend-dot"
+                        style="background:#f59e0b"
+                    ></span>
+
+                    Agricultural
+
+                </div>
+
+
+                <div class="legend-item">
+
+                    <span
+                        class="legend-dot"
+                        style="background:#a855f7"
+                    ></span>
+
+                    Persistent
+
+                </div>
+
+            `;
+
+
+            return div;
+
+        };
+
+
+    legend.addTo(
+        map
+    );
+
+}
+
+
+try {
+
+    if (
+        typeof L !==
+        "undefined"
+    ) {
+
+        document.addEventListener(
+            "DOMContentLoaded",
+            function () {
+
+                if (map) {
+
+                    createMapLegend();
+
+                }
+
+            }
+        );
+
+    }
+
+}
+
+catch (
+    error
+) {
+
+    console.error(
+        error
+    );
+
+}
+
+
+/* =========================================================
+   UTILITY FUNCTIONS
+========================================================= */
+
+function formatNumber(
+    value,
+    decimals = 2
+) {
+
+    const number =
+        Number(value);
+
+
+    if (
+        Number.isNaN(
+            number
+        )
+    ) {
+
+        return "—";
+
+    }
+
+
+    return number.toFixed(
+        decimals
+    );
+
+}
+
+
+/* =========================================================
+   CONFIDENCE CLASS
+========================================================= */
+
+function getConfidenceClass(
+    confidence
+) {
+
+    if (
+        confidence >= 85
+    ) {
+
+        return "critical";
+
+    }
+
+
+    if (
+        confidence >= 70
+    ) {
+
+        return "high";
+
+    }
+
+
+    if (
+        confidence >= 50
+    ) {
+
+        return "medium";
+
+    }
+
+
+    return "low";
+
+}
+
+
+/* =========================================================
+   DATE FORMATTER
+========================================================= */
+
+function formatDate(
+    value
+) {
+
+    if (!value) {
+
+        return "—";
+
+    }
+
+
+    const date =
+        new Date(
+            value
+        );
+
+
+    if (
+        Number.isNaN(
+            date.getTime()
+        )
+    ) {
+
+        return String(
+            value
+        );
+
+    }
+
+
+    return date.toLocaleDateString(
+        "en-IN",
+        {
+
+            day:
+                "2-digit",
+
+            month:
+                "short",
+
+            year:
+                "numeric"
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   SIDEBAR / NAVIGATION
+========================================================= */
+
+function setupNavigation() {
+
+    const navItems =
+        document.querySelectorAll(
+            "[data-section]"
+        );
+
+
+    navItems.forEach(
+        function (
+            item
+        ) {
+
+            item.addEventListener(
+                "click",
+                function () {
+
+                    const section =
+                        item.dataset.section;
+
+
+                    document
+                        .querySelectorAll(
+                            ".dashboard-section"
+                        )
+                        .forEach(
+                            function (
+                                element
+                            ) {
+
+                                element.classList
+                                    .remove(
+                                        "active"
+                                    );
+
+                            }
+                        );
+
+
+                    const target =
+                        document.getElementById(
+                            section
+                        );
+
+
+                    if (target) {
+
+                        target.classList.add(
+                            "active"
+                        );
+
+                    }
+
+                }
+            );
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   AUTO INITIALIZE NAVIGATION
+========================================================= */
+
+document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+
+        setupNavigation();
+
+    }
+);
+
+
+/* =========================================================
+   WINDOW RESIZE
+========================================================= */
+
+window.addEventListener(
+    "resize",
+    function () {
+
+        if (
+            map
+        ) {
+
+            setTimeout(
+                function () {
+
+                    map.invalidateSize();
+
+                },
+                200
+            );
+
+        }
+
+    }
+);
+
+
+/* =========================================================
+   CONSOLE INFORMATION
+========================================================= */
+
+console.log(
+    "%cAI Thermal Event Intelligence Dashboard",
+    "font-size:18px;font-weight:bold;"
+);
+
+
+console.log(
+    "Backend:",
+    BACKEND_URL
+);
+
+
+console.log(
+    "Alert thresholds:",
+    ALERT_THRESHOLDS
+);
+/* =========================================================
+   ADVANCED ALERT HELPERS
+========================================================= */
+
+function getAlertPriority(
+    level
+) {
+
+    switch (level) {
+
+        case "critical":
+
+            return 3;
+
+        case "high":
+
+            return 2;
+
+        case "monitor":
+
+            return 1;
+
+        default:
+
+            return 0;
+
+    }
+
+}
+
+
+/* =========================================================
+   SORT ALERTS
+========================================================= */
+
+function sortAlerts() {
+
+    alerts.sort(
+        function (
+            a,
+            b
+        ) {
+
+            const priorityDifference =
+                getAlertPriority(
+                    b.level
+                ) -
+                getAlertPriority(
+                    a.level
+                );
+
+
+            if (
+                priorityDifference !==
+                0
+            ) {
+
+                return priorityDifference;
+
+            }
+
+
+            return (
+                b.timestamp.getTime() -
+                a.timestamp.getTime()
+            );
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   ALERT SOUND
+========================================================= */
+
+function playAlertSound(
+    level
+) {
+
+    /*
+       Browser audio may be blocked until
+       the user interacts with the page.
+    */
+
+    try {
+
+        const AudioContext =
+            window.AudioContext ||
+            window.webkitAudioContext;
+
+
+        if (
+            !AudioContext
+        ) {
+
+            return;
+
+        }
+
+
+        const context =
+            new AudioContext();
+
+
+        const oscillator =
+            context.createOscillator();
+
+
+        const gain =
+            context.createGain();
+
+
+        oscillator.connect(
+            gain
+        );
+
+
+        gain.connect(
+            context.destination
+        );
+
+
+        oscillator.frequency.value =
+            level === "critical"
+                ? 880
+                : level === "high"
+                    ? 660
+                    : 440;
+
+
+        gain.gain.value =
+            0.04;
+
+
+        oscillator.start();
+
+
+        setTimeout(
+            function () {
+
+                oscillator.stop();
+
+                context.close();
+
+            },
+            180
+        );
+
+    }
+
+    catch (
+        error
+    ) {
+
+        console.warn(
+            "Alert sound unavailable:",
+            error
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   NOTIFICATION
+========================================================= */
+
+function showBrowserNotification(
+    alert
+) {
+
+    if (
+        !("Notification" in window)
+    ) {
+
+        return;
+
+    }
+
+
+    if (
+        Notification.permission ===
+        "granted"
+    ) {
+
+        new Notification(
+            `Thermal Intelligence — ${alert.level.toUpperCase()}`,
             {
-                padding: [
-                    30,
-                    30
-                ],
-                maxZoom: 10
+
+                body:
+                    alert.message,
+
+                tag:
+                    "thermal-alert"
+
             }
         );
 
@@ -3135,334 +2814,444 @@ function resetFilters() {
 
 
 /* =========================================================
-   EVENT LISTENERS
+   REQUEST NOTIFICATION PERMISSION
 ========================================================= */
 
-function setupEventListeners() {
+function requestNotificationPermission() {
 
-    document
-        .getElementById(
-            "type-filter"
-        )
-        .addEventListener(
-            "change",
-            applyFilters
-        );
+    if (
+        !("Notification" in window)
+    ) {
 
+        return;
 
-    document
-        .getElementById(
-            "landcover-filter"
-        )
-        .addEventListener(
-            "change",
-            applyFilters
-        );
+    }
 
 
-    document
-        .getElementById(
-            "confidence-filter"
-        )
-        .addEventListener(
-            "change",
-            applyFilters
-        );
+    if (
+        Notification.permission ===
+        "default"
+    ) {
 
+        Notification.requestPermission();
 
-    document
-        .getElementById(
-            "search-input"
-        )
-        .addEventListener(
-            "input",
-            applyFilters
-        );
-
-
-    document
-        .getElementById(
-            "reset-btn"
-        )
-        .addEventListener(
-            "click",
-            resetFilters
-        );
-
-
-    document
-        .getElementById(
-            "alert-button"
-        )
-        .addEventListener(
-            "click",
-            toggleAlertCenter
-        );
-
-
-    document
-        .getElementById(
-            "close-alerts"
-        )
-        .addEventListener(
-            "click",
-            closeAlertCenter
-        );
+    }
 
 }
 
 
 /* =========================================================
-   FORMATTING
+   ENHANCED PREDICTION ALERT
 ========================================================= */
 
-function formatNumber(value) {
+function triggerPredictionAlert(
+    prediction,
+    confidence
+) {
+
+    const level =
+        getAlertLevel(
+            confidence
+        );
+
 
     if (
-        value === null ||
-        value === undefined ||
-        !Number.isFinite(value)
+        level === "none"
     ) {
 
-        return "—";
+        return;
 
     }
 
 
-    return value.toLocaleString(
-        undefined,
-        {
-            maximumFractionDigits: 2
-        }
+    const alert = {
+
+        id:
+            Date.now(),
+
+        level:
+            level,
+
+        confidence:
+            confidence,
+
+        prediction:
+            prediction,
+
+        timestamp:
+            new Date(),
+
+        message:
+            `${prediction} detected with ${confidence.toFixed(1)}% confidence.`
+
+    };
+
+
+    alerts.unshift(
+        alert
+    );
+
+
+    if (
+        alerts.length > 20
+    ) {
+
+        alerts.pop();
+
+    }
+
+
+    sortAlerts();
+
+    updateAlertBadge();
+
+    renderAlertCenter();
+
+    playAlertSound(
+        level
+    );
+
+    showBrowserNotification(
+        alert
     );
 
 }
 
 
 /* =========================================================
-   DISTANCE
+   CONFIDENCE VISUALIZATION
 ========================================================= */
 
-function formatDistance(value) {
-
-    if (
-        value === null ||
-        value === undefined ||
-        !Number.isFinite(value)
-    ) {
-
-        return "—";
-
-    }
-
-
-    return `${value.toFixed(2)} km`;
-
-}
-
-
-/* =========================================================
-   DAYS
-========================================================= */
-
-function formatDays(value) {
-
-    if (
-        value === null ||
-        value === undefined ||
-        !Number.isFinite(value)
-    ) {
-
-        return "—";
-
-    }
-
-
-    return `${value.toFixed(2)} days`;
-
-}
-
-
-/* =========================================================
-   COORDINATE
-========================================================= */
-
-function formatCoordinate(value) {
-
-    if (
-        value === null ||
-        value === undefined ||
-        !Number.isFinite(value)
-    ) {
-
-        return "—";
-
-    }
-
-
-    return value.toFixed(5);
-
-}
-
-
-/* =========================================================
-   CONFIDENCE DISPLAY
-========================================================= */
-
-function formatConfidence(value) {
-
-    if (
-        value === null ||
-        value === undefined ||
-        !Number.isFinite(value)
-    ) {
-
-        return "N/A";
-
-    }
-
-
-    return `${value.toFixed(1)}%`;
-
-}
-
-
-/* =========================================================
-   CONFIDENCE WIDTH
-========================================================= */
-
-function confidenceWidth(value) {
-
-    if (
-        value === null ||
-        value === undefined ||
-        !Number.isFinite(value)
-    ) {
-
-        return 0;
-
-    }
-
-
-    return Math.max(
-        0,
-        Math.min(
-            100,
-            value
-        )
-    );
-
-}
-
-
-/* =========================================================
-   SET TEXT
-========================================================= */
-
-function setText(id, value) {
-
-    const element =
-        document.getElementById(id);
-
-
-    if (element) {
-
-        element.textContent =
-            value;
-
-    }
-
-}
-
-
-/* =========================================================
-   SECURITY
-========================================================= */
-
-function escapeHTML(value) {
-
-    if (
-        value === null ||
-        value === undefined
-    ) {
-
-        return "";
-
-    }
-
-
-    return String(value)
-        .replaceAll(
-            "&",
-            "&amp;"
-        )
-        .replaceAll(
-            "<",
-            "&lt;"
-        )
-        .replaceAll(
-            ">",
-            "&gt;"
-        )
-        .replaceAll(
-            '"',
-            "&quot;"
-        )
-        .replaceAll(
-            "'",
-            "&#039;"
-        );
-
-}
-
-
-/* =========================================================
-   DATA ERROR
-========================================================= */
-
-function showDataError() {
-
-    const tbody =
+function updateConfidenceVisualization(
+    confidence
+) {
+
+    const fill =
         document.getElementById(
-            "table-body"
+            "result-confidence-fill"
         );
 
 
-    if (!tbody) return;
+    const value =
+        document.getElementById(
+            "result-confidence-value"
+        );
 
 
-    tbody.innerHTML = `
+    if (
+        !fill ||
+        !value
+    ) {
 
-        <tr>
+        return;
 
-            <td
-                colspan="9"
-                class="data-error"
-            >
-
-                <i class="
-                    fa-solid
-                    fa-triangle-exclamation
-                "></i>
-
-                <strong>
-                    Could not load predictions.csv
-                </strong>
-
-                <small>
-                    Make sure predictions.csv is inside
-                    the frontend folder.
-                </small>
-
-            </td>
-
-        </tr>
-
-    `;
+    }
 
 
-    console.error(
-        "Prediction CSV could not be loaded."
+    const safeConfidence =
+        Math.max(
+            0,
+            Math.min(
+                100,
+                Number(
+                    confidence
+                ) || 0
+            )
+        );
+
+
+    fill.style.width =
+        `${safeConfidence}%`;
+
+
+    value.textContent =
+        `${safeConfidence.toFixed(1)}%`;
+
+
+    fill.classList.remove(
+        "confidence-low",
+        "confidence-medium",
+        "confidence-high",
+        "confidence-critical"
     );
 
+
+    if (
+        safeConfidence >= 85
+    ) {
+
+        fill.classList.add(
+            "confidence-critical"
+        );
+
+    }
+
+    else if (
+        safeConfidence >= 70
+    ) {
+
+        fill.classList.add(
+            "confidence-high"
+        );
+
+    }
+
+    else if (
+        safeConfidence >= 50
+    ) {
+
+        fill.classList.add(
+            "confidence-medium"
+        );
+
+    }
+
+    else {
+
+        fill.classList.add(
+            "confidence-low"
+        );
+
+    }
+
 }
+
+
+/* =========================================================
+   BACKEND RESPONSE NORMALIZER
+========================================================= */
+
+function normalizeBackendResponse(
+    result
+) {
+
+    if (
+        !result
+    ) {
+
+        return {
+
+            prediction:
+                "Other",
+
+            confidence:
+                0
+
+        };
+
+    }
+
+
+    let prediction =
+        result.predicted_event_type ||
+        result.event_type ||
+        result.prediction ||
+        result.classification ||
+        result.label ||
+        result.class ||
+        result.data?.prediction ||
+        result.data?.event_type ||
+        result.result?.prediction ||
+        result.result?.event_type ||
+        "Other";
+
+
+    let confidence =
+        result.confidence_pct ??
+        result.confidence ??
+        result.prediction_confidence ??
+        result.probability ??
+        result.score ??
+        result.data?.confidence_pct ??
+        result.data?.confidence ??
+        result.result?.confidence_pct ??
+        result.result?.confidence ??
+        0;
+
+
+    confidence =
+        Number(
+            confidence
+        );
+
+
+    if (
+        confidence >= 0 &&
+        confidence <= 1
+    ) {
+
+        confidence *= 100;
+
+    }
+
+
+    confidence =
+        Math.max(
+            0,
+            Math.min(
+                100,
+                confidence
+            )
+        );
+
+
+    return {
+
+        prediction:
+            normalizeType(
+                prediction
+            ),
+
+        confidence:
+            confidence
+
+    };
+
+}
+
+
+/* =========================================================
+   BACKEND HEALTH CHECK
+========================================================= */
+
+async function checkBackendHealth() {
+
+    /*
+       The prediction endpoint may not support GET.
+       Therefore this function only reports availability
+       when the backend responds.
+    */
+
+    try {
+
+        const response =
+            await fetch(
+                BACKEND_URL,
+                {
+
+                    method:
+                        "OPTIONS"
+
+                }
+            );
+
+
+        console.log(
+            "Backend response:",
+            response.status
+        );
+
+
+        return true;
+
+    }
+
+    catch (
+        error
+    ) {
+
+        console.warn(
+            "Backend health check failed:",
+            error
+        );
+
+
+        return false;
+
+    }
+
+}
+
+
+/* =========================================================
+   GLOBAL ERROR HANDLER
+========================================================= */
+
+window.addEventListener(
+    "error",
+    function (
+        event
+    ) {
+
+        console.error(
+            "Dashboard error:",
+            event.error ||
+            event.message
+        );
+
+    }
+);
+
+
+/* =========================================================
+   UNHANDLED PROMISE HANDLER
+========================================================= */
+
+window.addEventListener(
+    "unhandledrejection",
+    function (
+        event
+    ) {
+
+        console.error(
+            "Unhandled promise rejection:",
+            event.reason
+        );
+
+    }
+);
+
+
+/* =========================================================
+   FINAL INITIALIZATION
+========================================================= */
+
+document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+
+        requestNotificationPermission();
+
+        updateAlertBadge();
+
+        renderAlertCenter();
+
+    }
+);
+
+
+/* =========================================================
+   DEBUG INFORMATION
+========================================================= */
+
+function dashboardDebugInfo() {
+
+    return {
+
+        backend:
+            BACKEND_URL,
+
+        totalEvents:
+            allEvents.length,
+
+        filteredEvents:
+            filteredEvents.length,
+
+        activeAlerts:
+            alerts.length,
+
+        alertThresholds:
+            ALERT_THRESHOLDS
+
+    };
+
+}
+
+
+window.dashboardDebugInfo =
+    dashboardDebugInfo;
+
+
+/* =========================================================
+   END OF AI THERMAL EVENT INTELLIGENCE DASHBOARD
+========================================================= */
