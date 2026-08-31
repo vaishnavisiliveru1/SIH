@@ -1862,30 +1862,163 @@ function renderAlertCenter() {
         monitorElement.textContent =
             monitorCount;
     }
-
-
     if (alerts.length === 0) {
 
-        const container =
-            document.getElementById("alerts-list");
+    const container =
+        document.getElementById("alerts-list");
 
-        if (container) {
+    if (container) {
+        container.innerHTML = `
+            <div class="no-alerts">
+                No active alerts based on current filters.
+            </div>
+        `;
+    }
 
-            container.innerHTML = `
-                <div class="no-alerts">
-                    No active alerts based on current filters.
-                </div>
-            `;
+    return;
+}
 
-        }
+const container =
+    document.getElementById("alerts-list");
 
-        return;
+if (!container) {
+    console.warn(
+        "alerts-list element not found."
+    );
+    return;
+}
+
+container.innerHTML = "";
+
+alerts.forEach(alert => {
+
+    const alertCard =
+        document.createElement("div");
+
+    alertCard.className =
+        `alert-card ${alert.level}`;
+
+    const confidence =
+        formatConfidence(
+            alert.confidence
+        );
+
+    let title = "";
+    let icon = "";
+
+    if (alert.level === "critical") {
+
+        title =
+            "CRITICAL INDUSTRIAL FIRE ALERT";
+
+        icon =
+            "fa-triangle-exclamation";
+
+    } else if (alert.level === "high") {
+
+        title =
+            "HIGH-RISK INDUSTRIAL EVENT";
+
+        icon =
+            "fa-fire";
+
+    } else {
+
+        title =
+            "INDUSTRIAL EVENT — MONITOR";
+
+        icon =
+            "fa-eye";
+    }
+
+    alertCard.innerHTML = `
+        <div class="alert-icon">
+            <i class="fa-solid ${icon}"></i>
+        </div>
+
+        <div class="alert-content">
+
+            <div class="alert-title">
+                ${title}
+            </div>
+
+            <div class="alert-source">
+                Source:
+                <strong>
+                    ${escapeHTML(
+                        alert.source_id
+                    )}
+                </strong>
+            </div>
+
+            <div class="alert-details">
+
+                <span>
+                    Classification:
+                    ${escapeHTML(
+                        normalizeType(
+                            alert.predicted_event_type
+                        )
+                    )}
+                </span>
+
+                <span>
+                    Confidence:
+                    <strong>
+                        ${confidence}
+                    </strong>
+                </span>
+
+            </div>
+
+        </div>
+
+        <button
+            type="button"
+            class="alert-view-button"
+        >
+            VIEW
+        </button>
+    `;
+
+    const viewButton =
+        alertCard.querySelector(
+            ".alert-view-button"
+        );
+
+    if (viewButton) {
+
+        viewButton.addEventListener(
+            "click",
+            function(event) {
+
+                event.stopPropagation();
+
+                showEventDetails(
+                    alert
+                );
+
+                document
+                    .getElementById(
+                        "details-content"
+                    )
+                    ?.scrollIntoView({
+                        behavior: "smooth",
+                        block: "center"
+                    });
+
+            }
+        );
 
     }
 
-    /* Additional alert rendering logic goes here */
+    container.appendChild(
+        alertCard
+    );
 
-}
+});
+
+
 
 
 /* =========================================================
