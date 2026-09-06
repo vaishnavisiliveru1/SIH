@@ -1,7 +1,3 @@
-/* =========================================================
-   AI THERMAL EVENT INTELLIGENCE DASHBOARD
-========================================================= */
-
 :root {
 
     --background: #06090e;
@@ -887,6 +883,77 @@ body {
 
     color:
         var(--high);
+
+}
+
+
+.alert-summary-item.critical span {
+
+    color:
+        var(--critical, #ff4d5a);
+
+}
+
+
+.alert-item.critical {
+
+    border-left-color:
+        var(--critical, #ff4d5a);
+
+}
+
+
+.alert-item.critical
+.alert-item-icon {
+
+    color:
+        var(--critical, #ff4d5a);
+
+}
+
+
+.alert-title {
+
+    font-size: 9px;
+
+    font-weight: 900;
+
+    letter-spacing: .5px;
+
+}
+
+
+.alert-source,
+.alert-details {
+
+    color: #94a3b8;
+
+    font-size: 8px;
+
+}
+
+
+.alert-details {
+
+    display: flex;
+
+    gap: 14px;
+
+    flex-wrap: wrap;
+
+}
+
+
+.alert-details strong {
+
+    color: #e2e8f0;
+
+}
+
+
+.result-persistence {
+
+    margin-top: 8px;
 
 }
 
@@ -3137,5 +3204,6 @@ footer {
     }
 
 }
+
 
 

@@ -287,6 +287,19 @@
 
         <div class="alert-summary">
 
+            <div class="alert-summary-item critical">
+
+                <span id="critical-alert-count">
+                    0
+                </span>
+
+                <small>
+                    CRITICAL
+                </small>
+
+            </div>
+
+
             <div class="alert-summary-item high">
 
                 <span id="high-alert-count">
@@ -302,25 +315,12 @@
 
             <div class="alert-summary-item medium">
 
-                <span id="medium-alert-count">
+                <span id="monitor-alert-count">
                     0
                 </span>
 
                 <small>
-                    MEDIUM
-                </small>
-
-            </div>
-
-
-            <div class="alert-summary-item normal">
-
-                <span id="normal-event-count">
-                    0
-                </span>
-
-                <small>
-                    OTHER EVENTS
+                    MONITOR
                 </small>
 
             </div>
@@ -825,6 +825,18 @@
 
                 </div>
 
+                <div class="result-confidence result-persistence">
+
+                    <span>
+                        PERSISTENCE
+                    </span>
+
+                    <strong id="result-persistence-value">
+                        —
+                    </strong>
+
+                </div>
+
             </div>
 
         </div>
@@ -1255,5 +1267,4 @@
 
 </body>
 </html>
-
 
