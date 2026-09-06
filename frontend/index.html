@@ -81,38 +81,11 @@
 
     </div>
 
-
-    <!-- ALERT BUTTON -->
-
-    <div class="header-alert-wrap">
-
-        <button
-            id="alert-button"
-            class="alert-button"
-            type="button"
-        >
-
-            <i class="fa-solid fa-bell"></i>
-
-            <span>ALERTS</span>
-
-            <strong id="alert-count">0</strong>
-
-        </button>
-
-    </div>
-
-
-    <!-- SYSTEM STATUS -->
-
     <div class="system-status">
 
         <div class="status-indicator">
-
             <span class="pulse"></span>
-
             SYSTEM ONLINE
-
         </div>
 
         <div class="status-sub">
@@ -144,7 +117,6 @@
             </div>
 
             <div>
-
                 <span class="stat-label">
                     TOTAL THERMAL SOURCES
                 </span>
@@ -152,7 +124,6 @@
                 <strong id="total-sources">
                     0
                 </strong>
-
             </div>
 
         </div>
@@ -165,7 +136,6 @@
             </div>
 
             <div>
-
                 <span class="stat-label">
                     INDUSTRIAL
                 </span>
@@ -173,7 +143,6 @@
                 <strong id="industrial-count">
                     0
                 </strong>
-
             </div>
 
         </div>
@@ -186,7 +155,6 @@
             </div>
 
             <div>
-
                 <span class="stat-label">
                     FOREST / NATURAL
                 </span>
@@ -194,7 +162,6 @@
                 <strong id="forest-count">
                     0
                 </strong>
-
             </div>
 
         </div>
@@ -207,7 +174,6 @@
             </div>
 
             <div>
-
                 <span class="stat-label">
                     AGRICULTURAL
                 </span>
@@ -215,7 +181,6 @@
                 <strong id="agricultural-count">
                     0
                 </strong>
-
             </div>
 
         </div>
@@ -228,7 +193,6 @@
             </div>
 
             <div>
-
                 <span class="stat-label">
                     OTHER
                 </span>
@@ -236,102 +200,9 @@
                 <strong id="other-count">
                     0
                 </strong>
-
             </div>
 
         </div>
-
-    </section>
-
-
-    <!-- =====================================================
-         ALERT CENTER
-    ====================================================== -->
-
-    <section
-        id="alert-center"
-        class="alert-center hidden"
-    >
-
-        <div class="alert-center-header">
-
-            <div>
-
-                <span class="panel-kicker">
-                    REAL-TIME RISK MONITORING
-                </span>
-
-                <h2>
-                    <i class="fa-solid fa-triangle-exclamation"></i>
-                    Thermal Alerts
-                </h2>
-
-                <p>
-                    Alerts are generated only for Industrial Fire events based on AI confidence.
-                </p>
-
-            </div>
-
-            <button
-                id="close-alerts"
-                class="alert-close"
-                type="button"
-            >
-
-                <i class="fa-solid fa-xmark"></i>
-
-            </button>
-
-        </div>
-
-
-        <div class="alert-summary">
-
-            <div class="alert-summary-item critical">
-
-                <span id="critical-alert-count">
-                    0
-                </span>
-
-                <small>
-                    CRITICAL
-                </small>
-
-            </div>
-
-
-            <div class="alert-summary-item high">
-
-                <span id="high-alert-count">
-                    0
-                </span>
-
-                <small>
-                    HIGH
-                </small>
-
-            </div>
-
-
-            <div class="alert-summary-item medium">
-
-                <span id="monitor-alert-count">
-                    0
-                </span>
-
-                <small>
-                    MONITOR
-                </small>
-
-            </div>
-
-        </div>
-
-
-        <div
-            id="alert-list"
-            class="alert-list"
-        ></div>
 
     </section>
 
@@ -357,9 +228,7 @@
             </div>
 
             <div class="ai-header-icon">
-
                 <i class="fa-solid fa-brain"></i>
-
             </div>
 
         </div>
@@ -368,12 +237,12 @@
         <div class="prediction-content">
 
 
+            <!-- INTRO -->
+
             <div class="prediction-intro">
 
                 <div class="intro-icon">
-
                     <i class="fa-solid fa-satellite-dish"></i>
-
                 </div>
 
                 <div>
@@ -383,9 +252,9 @@
                     </h3>
 
                     <p>
-                        Enter satellite, GIS and temporal information.
-                        The backend will derive additional model features
-                        and classify the event.
+                        Enter the available satellite, GIS and temporal
+                        information. The backend will automatically derive
+                        additional model features and classify the event.
                     </p>
 
                 </div>
@@ -393,7 +262,7 @@
             </div>
 
 
-            <!-- FORM -->
+            <!-- INPUT FORM -->
 
             <form id="prediction-form">
 
@@ -403,15 +272,13 @@
                 <div class="input-section">
 
                     <div class="input-section-title">
-
                         <span>01</span>
-
                         NASA FIRMS / SATELLITE FEATURES
-
                     </div>
 
 
                     <div class="input-grid">
+
 
                         <div class="input-group-custom">
 
@@ -536,15 +403,13 @@
                 <div class="input-section">
 
                     <div class="input-section-title">
-
                         <span>02</span>
-
                         GIS / INDUSTRIAL CONTEXT
-
                     </div>
 
 
                     <div class="input-grid">
+
 
                         <div class="input-group-custom">
 
@@ -661,15 +526,13 @@
                 <div class="input-section">
 
                     <div class="input-section-title">
-
                         <span>03</span>
-
                         TEMPORAL / RECURRENCE FEATURES
-
                     </div>
 
 
                     <div class="input-grid">
+
 
                         <div class="input-group-custom">
 
@@ -765,22 +628,16 @@
             </form>
 
 
-            <!-- PREDICTION RESULT -->
+            <!-- RESULT -->
 
             <div
                 id="prediction-result"
                 class="prediction-result hidden"
             >
 
-                <div
-                    class="result-icon"
-                    id="result-icon"
-                >
-
+                <div class="result-icon" id="result-icon">
                     <i class="fa-solid fa-fire"></i>
-
                 </div>
-
 
                 <div class="result-main">
 
@@ -796,13 +653,13 @@
                         —
                     </p>
 
-                    <div
-                        id="prediction-alert-badge"
-                        class="prediction-alert-badge hidden"
-                    ></div>
-
                 </div>
 
+                <div class="result-persistence">
+                    <span>PERSISTENCE</span>
+                    <strong id="result-persistence-value">—</strong>
+                    <small id="result-persistence-category">—</small>
+                </div>
 
                 <div class="result-confidence">
 
@@ -825,19 +682,8 @@
 
                 </div>
 
-                <div class="result-confidence result-persistence">
-
-                    <span>
-                        PERSISTENCE
-                    </span>
-
-                    <strong id="result-persistence-value">
-                        —
-                    </strong>
-
-                </div>
-
             </div>
+
 
         </div>
 
@@ -864,11 +710,10 @@
                     </span>
 
                     <h2>
-                        Thermal Event Map
+                        Thermal Hotspot Map
                     </h2>
 
                 </div>
-
 
                 <div class="map-status">
 
@@ -886,6 +731,8 @@
                 <div id="map"></div>
 
 
+                <!-- LEGEND -->
+
                 <div class="map-legend">
 
                     <div class="legend-heading">
@@ -893,23 +740,35 @@
                     </div>
 
                     <div class="legend-row">
+
                         <span class="legend-dot industrial"></span>
+
                         Industrial
+
                     </div>
 
                     <div class="legend-row">
+
                         <span class="legend-dot forest"></span>
+
                         Forest / Natural
+
                     </div>
 
                     <div class="legend-row">
+
                         <span class="legend-dot agricultural"></span>
+
                         Agricultural
+
                     </div>
 
                     <div class="legend-row">
+
                         <span class="legend-dot other"></span>
+
                         Other
+
                     </div>
 
                 </div>
@@ -1027,8 +886,8 @@
                         ≥ 50%
                     </option>
 
-                    <option value="60">
-                        ≥ 60%
+                    <option value="70">
+                        ≥ 70%
                     </option>
 
                     <option value="80">
@@ -1047,7 +906,6 @@
             <button
                 id="reset-btn"
                 class="reset-button"
-                type="button"
             >
 
                 <i class="fa-solid fa-rotate-left"></i>
@@ -1160,10 +1018,68 @@
         </div>
 
     </section>
+    <!-- =====================================================
+     ALERT CENTER
+====================================================== -->
+
+<section class="alerts-panel">
+
+    <div class="panel-header">
+
+        <div>
+            <span class="panel-kicker">
+                THREAT MONITORING
+            </span>
+
+            <h2>
+                Thermal Event Alerts
+            </h2>
+        </div>
+
+        <div class="alert-summary">
+
+            <div class="alert-summary-item critical">
+                <span>CRITICAL</span>
+                <strong id="critical-alert-count">
+                    0
+                </strong>
+            </div>
+
+            <div class="alert-summary-item high">
+                <span>HIGH</span>
+                <strong id="high-alert-count">
+                    0
+                </strong>
+            </div>
+
+            <div class="alert-summary-item monitor">
+                <span>MONITOR</span>
+                <strong id="monitor-alert-count">
+                    0
+                </strong>
+            </div>
+
+        </div>
+
+    </div>
+
+    <div
+        id="alerts-list"
+        class="alerts-list"
+    >
+
+        <div class="no-alerts">
+            No active alerts based on current filters.
+        </div>
+
+    </div>
+
+</section>
+
 
 
     <!-- =====================================================
-         EVENT DATABASE
+         EVENT LOGS
     ====================================================== -->
 
     <section class="table-panel">
@@ -1182,11 +1098,9 @@
 
             </div>
 
-            <div
-                id="visible-count"
-                class="visible-count"
-            >
-                0 EVENTS
+            <div class="database-status-wrap">
+                <div id="visible-count" class="visible-count">0 EVENTS</div>
+                <span id="database-status" class="database-status">DATABASE READY</span>
             </div>
 
         </div>
@@ -1201,27 +1115,18 @@
                     <tr>
 
                         <th>SOURCE ID</th>
-
                         <th>AI CLASSIFICATION</th>
-
                         <th>CONFIDENCE</th>
-
                         <th>LATITUDE</th>
-
                         <th>LONGITUDE</th>
-
                         <th>LAND COVER</th>
-
                         <th>MEAN FRP</th>
-
                         <th>PERSISTENCE</th>
-
                         <th>ACTION</th>
 
                     </tr>
 
                 </thead>
-
 
                 <tbody id="table-body"></tbody>
 
@@ -1267,5 +1172,3 @@
 
 </body>
 </html>
-
-

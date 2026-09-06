@@ -1,8 +1,3 @@
-/* =========================================================
-   AI THERMAL EVENT INTELLIGENCE DASHBOARD
-   COMPLETE APP.JS
-========================================================= */
-
 let allEvents = [];
 let filteredEvents = [];
 
@@ -10,16 +5,14 @@ let map = null;
 let markersLayer = null;
 
 let alerts = [];
+let selectedEvent = null;
+
+let persistenceMap = new Map();
+
+let currentPage = 1;
+const rowsPerPage = 10;
 
 const BACKEND_URL = "http://127.0.0.1:8000/predict";
-
-const STORAGE_KEY =
-    "sih_thermal_event_database_v2";
-
-
-/* =========================================================
-   ALERT RULES
-========================================================= */
 
 const ALERT_THRESHOLDS = {
     CRITICAL: 80,
@@ -28,52 +21,23 @@ const ALERT_THRESHOLDS = {
 
 
 /* =========================================================
-   GLOBAL STATE
-========================================================= */
-
-let selectedEvent = null;
-let persistenceMap = new Map();
-
-let currentPage = 1;
-const rowsPerPage = 10;
-
-
-/* =========================================================
-   DOM READY
+   INITIALIZATION
 ========================================================= */
 
 document.addEventListener("DOMContentLoaded", () => {
-
     initializeDashboard();
-
 });
 
 
-/* =========================================================
-   INITIALIZE DASHBOARD
-========================================================= */
-
 async function initializeDashboard() {
 
-    try {
+    initializeNavigation();
+    initializeMap();
+    initializeFilters();
+    initializePredictionForm();
+    initializePagination();
 
-        initializeMap();
-        initializeNavigation();
-        initializeFilters();
-        initializePredictionForm();
-        initializeTableEvents();
-
-        await loadDashboardData();
-
-    } catch (error) {
-
-        console.error(
-            "Dashboard initialization error:",
-            error
-        );
-
-    }
-
+    await loadDashboardData();
 }
 
 
@@ -87,9 +51,9 @@ async function loadCSVWithFallback(paths) {
 
         try {
 
-            const response = await fetch(path, {
-                cache: "no-store"
-            });
+            const response = await fetch(
+                path + "?v=" + Date.now()
+            );
 
             if (!response.ok) {
                 continue;
@@ -97,27 +61,31 @@ async function loadCSVWithFallback(paths) {
 
             const text = await response.text();
 
-            if (!text.trim()) {
-                continue;
-            }
+            if (
+                text &&
+                text.trim().length > 0
+            ) {
+                console.log(
+                    "Loaded CSV:",
+                    path
+                );
 
-            return text;
+                return text;
+            }
 
         } catch (error) {
 
             console.warn(
-                `Unable to load CSV: ${path}`,
-                error
+                "Failed to load:",
+                path
             );
 
         }
-
     }
 
     throw new Error(
-        "Unable to load CSV from available paths."
+        "CSV file could not be loaded."
     );
-
 }
 
 
@@ -130,34 +98,19 @@ async function loadDashboardData() {
     try {
 
         /*
-         * Main classification dataset.
-         *
-         * event_classification_features.csv is preferred.
-         * predictions.csv is kept as fallback so the
-         * dashboard still works with the older dataset.
+         * IMPORTANT:
+         * The files are inside frontend/
+         * so use the simple filenames first.
          */
 
         const classificationCSV =
             await loadCSVWithFallback([
-
                 "event_classification_features.csv",
                 "./event_classification_features.csv",
-
                 "frontend/event_classification_features.csv",
-                "./frontend/event_classification_features.csv",
-
-                "data/event_classification_features.csv",
-                "./data/event_classification_features.csv",
-
-                "predictions.csv",
-                "./predictions.csv"
-
+                "./frontend/event_classification_features.csv"
             ]);
 
-
-        /*
-         * Persistence dataset.
-         */
 
         let persistenceCSV = "";
 
@@ -165,23 +118,16 @@ async function loadDashboardData() {
 
             persistenceCSV =
                 await loadCSVWithFallback([
-
                     "source_persistence_features.csv",
                     "./source_persistence_features.csv",
-
                     "frontend/source_persistence_features.csv",
-                    "./frontend/source_persistence_features.csv",
-
-                    "data/source_persistence_features.csv",
-                    "./data/source_persistence_features.csv"
-
+                    "./frontend/source_persistence_features.csv"
                 ]);
 
         } catch (error) {
 
             console.warn(
-                "Persistence CSV could not be loaded.",
-                error
+                "Persistence CSV not found. Continuing without persistence."
             );
 
         }
@@ -190,10 +136,23 @@ async function loadDashboardData() {
         const classificationData =
             parseCSV(classificationCSV);
 
+
         const persistenceData =
             persistenceCSV
                 ? parseCSV(persistenceCSV)
                 : [];
+
+
+        console.log(
+            "Classification rows:",
+            classificationData.length
+        );
+
+
+        console.log(
+            "Persistence rows:",
+            persistenceData.length
+        );
 
 
         processData(
@@ -202,21 +161,19 @@ async function loadDashboardData() {
         );
 
 
-        updateDashboard();
-
     } catch (error) {
 
         console.error(
-            "Failed to load event classification data:",
+            "DATA LOAD ERROR:",
             error
         );
 
+
         showDataError(
-            "Could not load event classification data."
+            "Unable to load event classification data."
         );
 
     }
-
 }
 
 
@@ -227,79 +184,139 @@ async function loadDashboardData() {
 function parseCSV(text) {
 
     const rows = [];
-    let row = [];
-    let value = "";
+
+    let currentRow = [];
+    let currentValue = "";
     let insideQuotes = false;
 
-    for (let i = 0; i < text.length; i++) {
+
+    for (
+        let i = 0;
+        i < text.length;
+        i++
+    ) {
 
         const char = text[i];
-        const next = text[i + 1];
 
-        if (char === '"' && insideQuotes && next === '"') {
+        const nextChar =
+            text[i + 1];
 
-            value += '"';
+
+        if (
+            char === '"' &&
+            insideQuotes &&
+            nextChar === '"'
+        ) {
+
+            currentValue += '"';
             i++;
 
-        } else if (char === '"') {
+        }
 
-            insideQuotes = !insideQuotes;
+        else if (
+            char === '"'
+        ) {
 
-        } else if (char === "," && !insideQuotes) {
+            insideQuotes =
+                !insideQuotes;
 
-            row.push(value);
-            value = "";
+        }
 
-        } else if (
-            (char === "\n" || char === "\r") &&
+        else if (
+            char === "," &&
             !insideQuotes
         ) {
 
-            if (char === "\r" && next === "\n") {
+            currentRow.push(
+                currentValue
+            );
+
+            currentValue = "";
+
+        }
+
+        else if (
+            (
+                char === "\n" ||
+                char === "\r"
+            ) &&
+            !insideQuotes
+        ) {
+
+            if (
+                char === "\r" &&
+                nextChar === "\n"
+            ) {
                 i++;
             }
 
-            row.push(value);
-            value = "";
+
+            currentRow.push(
+                currentValue
+            );
+
+            currentValue = "";
+
 
             if (
-                row.some(
-                    cell =>
-                        String(cell).trim() !== ""
+                currentRow.some(
+                    value =>
+                        String(value)
+                            .trim() !== ""
                 )
             ) {
-                rows.push(row);
+
+                rows.push(
+                    currentRow
+                );
+
             }
 
-            row = [];
 
-        } else {
-
-            value += char;
+            currentRow = [];
 
         }
 
+        else {
+
+            currentValue += char;
+
+        }
     }
 
 
-    if (value !== "" || row.length > 0) {
+    if (
+        currentValue !== "" ||
+        currentRow.length > 0
+    ) {
 
-        row.push(value);
+        currentRow.push(
+            currentValue
+        );
+
 
         if (
-            row.some(
-                cell =>
-                    String(cell).trim() !== ""
+            currentRow.some(
+                value =>
+                    String(value)
+                        .trim() !== ""
             )
         ) {
-            rows.push(row);
-        }
 
+            rows.push(
+                currentRow
+            );
+
+        }
     }
 
 
-    if (rows.length === 0) {
+    if (
+        rows.length === 0
+    ) {
+
         return [];
+
     }
 
 
@@ -308,7 +325,14 @@ function parseCSV(text) {
             header =>
                 String(header)
                     .trim()
-                    .replace(/^"|"$/g, "")
+                    .replace(
+                        /^\uFEFF/,
+                        ""
+                    )
+                    .replace(
+                        /^"|"$/g,
+                        ""
+                    )
         );
 
 
@@ -318,16 +342,24 @@ function parseCSV(text) {
 
             const object = {};
 
+
             headers.forEach(
-                (header, index) => {
+                (
+                    header,
+                    index
+                ) => {
 
                     object[header] =
-                        row[index] !== undefined
-                            ? String(row[index]).trim()
+                        row[index] !==
+                        undefined
+                            ? String(
+                                row[index]
+                            ).trim()
                             : "";
 
                 }
             );
+
 
             return object;
 
@@ -341,47 +373,56 @@ function parseCSV(text) {
 ========================================================= */
 
 function processData(
-    data,
+    classificationData,
     persistenceData = []
 ) {
 
-    persistenceMap = new Map();
+    persistenceMap =
+        new Map();
 
 
     /*
-     * Store persistence information using source_id.
+     * Build persistence lookup.
      */
 
-    persistenceData.forEach(row => {
+    persistenceData.forEach(
+        row => {
 
-        const sourceId =
-            getValue(
-                row,
-                [
-                    "source_id",
-                    "SOURCE_ID",
-                    "Source ID"
-                ]
-            );
+            const sourceId =
+                getValue(
+                    row,
+                    [
+                        "source_id",
+                        "SOURCE_ID",
+                        "Source ID"
+                    ]
+                );
 
-        if (
-            sourceId !== null &&
-            sourceId !== undefined &&
-            String(sourceId).trim() !== ""
-        ) {
 
-            persistenceMap.set(
-                String(sourceId).trim(),
-                row
-            );
+            if (
+                sourceId !== null &&
+                sourceId !== undefined &&
+                String(sourceId).trim() !== ""
+            ) {
+
+                persistenceMap.set(
+                    String(sourceId).trim(),
+                    row
+                );
+
+            }
 
         }
+    );
 
-    });
 
+    /*
+     * Convert classification rows
+     * into dashboard events.
+     */
 
     allEvents =
-        data.map(
+        classificationData.map(
             (row, index) =>
                 normalizeEvent(
                     row,
@@ -391,10 +432,12 @@ function processData(
 
 
     /*
-     * Attach persistence information.
+     * Attach persistence.
      */
 
-    applyPersistenceData(allEvents);
+    applyPersistenceData(
+        allEvents
+    );
 
 
     filteredEvents =
@@ -404,88 +447,19 @@ function processData(
     currentPage = 1;
 
 
-    updateCounts();
-    updateTable();
-    updateMap();
-    updateAlerts();
-
-}
+    console.log(
+        "TOTAL EVENTS:",
+        allEvents.length
+    );
 
 
-/* =========================================================
-   APPLY PERSISTENCE DATA
-========================================================= */
-
-function applyPersistenceData(events) {
-
-    events.forEach(event => {
-
-        const key =
-            String(event.source_id)
-                .trim();
+    console.log(
+        "FIRST EVENT:",
+        allEvents[0]
+    );
 
 
-        const persistence =
-            persistenceMap.get(key);
-
-
-        if (!persistence) {
-            return;
-        }
-
-
-        const score =
-            parsePersistenceScore(
-                getValue(
-                    persistence,
-                    [
-                        "persistence_score",
-                        "Persistence Score",
-                        "persistence"
-                    ]
-                )
-            );
-
-
-        const flag =
-            getValue(
-                persistence,
-                [
-                    "persistent_flag",
-                    "Persistent Flag"
-                ]
-            );
-
-
-        const category =
-            getValue(
-                persistence,
-                [
-                    "persistence_category",
-                    "Persistence Category"
-                ]
-            );
-
-
-        event.persistence_score =
-            score;
-
-
-        event.persistent_flag =
-            flag;
-
-
-        event.persistence_category =
-            category;
-
-
-        event.persistence =
-            formatPersistence(
-                score,
-                category
-            );
-
-    });
+    updateDashboard();
 
 }
 
@@ -499,6 +473,11 @@ function normalizeEvent(
     index
 ) {
 
+    /*
+     * Your classification CSV uses
+     * predicted_event_type.
+     */
+
     const sourceId =
         getValue(
             row,
@@ -508,130 +487,98 @@ function normalizeEvent(
                 "Source ID",
                 "source id"
             ]
-        ) || `EVENT-${index + 1}`;
+        );
 
 
-    const classification =
+    const predictedType =
         getValue(
             row,
             [
-                "classification",
-                "predicted_class",
+                "predicted_event_type",
+                "Predicted Event Type",
                 "prediction",
-                "ai_classification",
+                "predicted_class",
+                "classification",
                 "AI Classification",
                 "class",
                 "label"
             ]
-        ) || "Other";
-
-
-    const confidence =
-        parseConfidence(
-            getValue(
-                row,
-                [
-                    "confidence",
-                    "Confidence",
-                    "confidence_pct",
-                    "confidence_percent",
-                    "model_confidence",
-                    "prediction_confidence"
-                ]
-            )
         );
 
 
-    const latitude =
-        parseFloat(
-            getValue(
-                row,
-                [
-                    "latitude",
-                    "Latitude",
-                    "lat",
-                    "LATITUDE"
-                ]
-            )
-        );
-
-
-    const longitude =
-        parseFloat(
-            getValue(
-                row,
-                [
-                    "longitude",
-                    "Longitude",
-                    "lon",
-                    "lng",
-                    "LONGITUDE"
-                ]
-            )
-        );
-
-
-    const landCover =
+    const confidenceRaw =
         getValue(
             row,
             [
+                "confidence_pct",
+                "confidence",
+                "Confidence",
+                "confidence_percent",
+                "model_confidence",
+                "prediction_confidence"
+            ]
+        );
+
+
+    const latitudeRaw =
+        getValue(
+            row,
+            [
+                "latitude",
+                "Latitude",
+                "lat",
+                "LATITUDE"
+            ]
+        );
+
+
+    const longitudeRaw =
+        getValue(
+            row,
+            [
+                "longitude",
+                "Longitude",
+                "lon",
+                "lng",
+                "LONGITUDE"
+            ]
+        );
+
+
+    const landcover =
+        getValue(
+            row,
+            [
+                "landcover",
                 "land_cover",
                 "Land Cover",
-                "landcover",
-                "land_cover_type"
-            ]
-        ) || "Unknown";
-
-
-    const meanFRP =
-        parseFloat(
-            getValue(
-                row,
-                [
-                    "mean_frp",
-                    "Mean FRP",
-                    "mean_frp_mw",
-                    "Mean FRP (MW)",
-                    "frp"
-                ]
-            )
-        );
-
-
-    const maxFRP =
-        parseFloat(
-            getValue(
-                row,
-                [
-                    "max_frp",
-                    "Maximum FRP",
-                    "max_frp_mw",
-                    "Maximum FRP (MW)"
-                ]
-            )
-        );
-
-
-    const date =
-        getValue(
-            row,
-            [
-                "date",
-                "Date",
-                "acq_date",
-                "event_date"
+                "land_cover_type",
+                "landcover_type"
             ]
         );
 
 
-    const time =
+    const meanFRPRaw =
         getValue(
             row,
             [
-                "time",
-                "Time",
-                "acq_time",
-                "event_time"
+                "mean_frp",
+                "Mean FRP",
+                "mean_frp_mw",
+                "Mean FRP (MW)",
+                "frp"
+            ]
+        );
+
+
+    const maxFRPRaw =
+        getValue(
+            row,
+            [
+                "max_frp",
+                "Maximum FRP",
+                "max_frp_mw",
+                "Maximum FRP (MW)"
             ]
         );
 
@@ -643,35 +590,57 @@ function normalizeEvent(
         index,
 
         source_id:
-            String(sourceId).trim(),
+            sourceId !== null
+                ? String(
+                    sourceId
+                ).trim()
+                : `EVENT-${index + 1}`,
 
-        classification:
-            normalizeClassification(
-                classification
+        predicted_event_type:
+            normalizeType(
+                predictedType
             ),
 
-        confidence,
+        confidence:
+            parseConfidence(
+                confidenceRaw
+            ),
 
-        latitude,
+        latitude:
+            parseFloat(
+                latitudeRaw
+            ),
 
-        longitude,
+        longitude:
+            parseFloat(
+                longitudeRaw
+            ),
 
-        land_cover:
-            landCover,
+        landcover:
+            landcover ||
+            "Unknown",
 
         mean_frp:
-            Number.isFinite(meanFRP)
-                ? meanFRP
+            Number.isFinite(
+                parseFloat(
+                    meanFRPRaw
+                )
+            )
+                ? parseFloat(
+                    meanFRPRaw
+                )
                 : null,
 
         max_frp:
-            Number.isFinite(maxFRP)
-                ? maxFRP
+            Number.isFinite(
+                parseFloat(
+                    maxFRPRaw
+                )
+            )
+                ? parseFloat(
+                    maxFRPRaw
+                )
                 : null,
-
-        date,
-
-        time,
 
         persistence_score:
             null,
@@ -680,10 +649,7 @@ function normalizeEvent(
             null,
 
         persistence_category:
-            null,
-
-        persistence:
-            "—"
+            null
 
     };
 
@@ -694,7 +660,90 @@ function normalizeEvent(
 
 
 /* =========================================================
-   VALUE HELPER
+   NORMALIZE EVENT TYPE
+========================================================= */
+
+function normalizeType(
+    value
+) {
+
+    if (
+        value === null ||
+        value === undefined
+    ) {
+
+        return "Other";
+
+    }
+
+
+    const text =
+        String(value)
+            .trim()
+            .toLowerCase();
+
+
+    if (
+        text.includes(
+            "industrial"
+        )
+    ) {
+
+        return "Industrial";
+
+    }
+
+
+    if (
+        text.includes(
+            "forest"
+        ) ||
+        text.includes(
+            "natural"
+        ) ||
+        text.includes(
+            "wildfire"
+        )
+    ) {
+
+        return "Forest/Natural";
+
+    }
+
+
+    if (
+        text.includes(
+            "agricultural"
+        ) ||
+        text.includes(
+            "agriculture"
+        ) ||
+        text.includes(
+            "crop"
+        )
+    ) {
+
+        return "Agricultural";
+
+    }
+
+
+    if (
+        text === "other"
+    ) {
+
+        return "Other";
+
+    }
+
+
+    return "Other";
+
+}
+
+
+/* =========================================================
+   GET VALUE
 ========================================================= */
 
 function getValue(
@@ -702,7 +751,23 @@ function getValue(
     possibleKeys
 ) {
 
-    for (const key of possibleKeys) {
+    if (
+        !object ||
+        typeof object !== "object"
+    ) {
+
+        return null;
+
+    }
+
+
+    /*
+     * Exact key lookup.
+     */
+
+    for (
+        const key of possibleKeys
+    ) {
 
         if (
             Object.prototype.hasOwnProperty.call(
@@ -714,9 +779,10 @@ function getValue(
             const value =
                 object[key];
 
+
             if (
-                value !== undefined &&
                 value !== null &&
+                value !== undefined &&
                 String(value).trim() !== ""
             ) {
 
@@ -730,36 +796,46 @@ function getValue(
 
 
     /*
-     * Case-insensitive fallback.
+     * Case-insensitive lookup.
      */
 
-    const objectKeys =
-        Object.keys(object);
+    const actualKeys =
+        Object.keys(
+            object
+        );
 
 
-    for (const requestedKey of possibleKeys) {
+    for (
+        const wantedKey of possibleKeys
+    ) {
 
         const matchingKey =
-            objectKeys.find(
+            actualKeys.find(
                 actualKey =>
                     actualKey
-                        .toLowerCase()
-                        .trim() ===
-                    String(requestedKey)
-                        .toLowerCase()
                         .trim()
+                        .toLowerCase() ===
+                    String(
+                        wantedKey
+                    )
+                        .trim()
+                        .toLowerCase()
             );
 
 
-        if (matchingKey) {
+        if (
+            matchingKey
+        ) {
 
             const value =
-                object[matchingKey];
+                object[
+                    matchingKey
+                ];
 
 
             if (
-                value !== undefined &&
                 value !== null &&
+                value !== undefined &&
                 String(value).trim() !== ""
             ) {
 
@@ -778,66 +854,18 @@ function getValue(
 
 
 /* =========================================================
-   CLASSIFICATION NORMALIZATION
-========================================================= */
-
-function normalizeClassification(
-    classification
-) {
-
-    const value =
-        String(classification)
-            .trim()
-            .toLowerCase();
-
-
-    if (
-        value.includes("industrial")
-    ) {
-        return "Industrial";
-    }
-
-
-    if (
-        value.includes("forest") ||
-        value.includes("natural") ||
-        value.includes("wildfire")
-    ) {
-        return "Forest/Natural";
-    }
-
-
-    if (
-        value.includes("agricultural") ||
-        value.includes("agriculture") ||
-        value.includes("crop")
-    ) {
-        return "Agricultural";
-    }
-
-
-    return "Other";
-
-}
-
-
-/* =========================================================
    CONFIDENCE PARSER
 ========================================================= */
 
-function parseConfidence(value) {
+function parseConfidence(
+    value
+) {
 
     if (
         value === null ||
         value === undefined ||
         String(value).trim() === ""
     ) {
-
-        /*
-         * Do NOT invent demo confidence.
-         * Confidence must come from the
-         * classification CSV.
-         */
 
         return null;
 
@@ -847,20 +875,27 @@ function parseConfidence(value) {
     let number =
         parseFloat(
             String(value)
-                .replace("%", "")
+                .replace(
+                    "%",
+                    ""
+                )
                 .trim()
         );
 
 
-    if (!Number.isFinite(number)) {
+    if (
+        !Number.isFinite(
+            number
+        )
+    ) {
+
         return null;
+
     }
 
 
     /*
-     * If the CSV stores confidence as a
-     * fraction such as 0.87, convert it
-     * to percentage.
+     * Convert 0.87 → 87.
      */
 
     if (
@@ -885,10 +920,94 @@ function parseConfidence(value) {
 
 
 /* =========================================================
-   PERSISTENCE SCORE PARSER
+   PERSISTENCE
 ========================================================= */
 
-function parsePersistenceScore(value) {
+function applyPersistenceData(
+    events
+) {
+
+    events.forEach(
+        event => {
+
+            const sourceId =
+                String(
+                    event.source_id
+                ).trim();
+
+
+            const persistenceRow =
+                persistenceMap.get(
+                    sourceId
+                );
+
+
+            if (
+                !persistenceRow
+            ) {
+
+                return;
+
+            }
+
+
+            const score =
+                parsePersistenceScore(
+                    getValue(
+                        persistenceRow,
+                        [
+                            "persistence_score",
+                            "Persistence Score",
+                            "persistence"
+                        ]
+                    )
+                );
+
+
+            const flag =
+                getValue(
+                    persistenceRow,
+                    [
+                        "persistent_flag",
+                        "Persistent Flag"
+                    ]
+                );
+
+
+            const category =
+                getValue(
+                    persistenceRow,
+                    [
+                        "persistence_category",
+                        "Persistence Category"
+                    ]
+                );
+
+
+            event.persistence_score =
+                score;
+
+
+            event.persistent_flag =
+                flag;
+
+
+            event.persistence_category =
+                category;
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   PERSISTENCE SCORE
+========================================================= */
+
+function parsePersistenceScore(
+    value
+) {
 
     if (
         value === null ||
@@ -904,89 +1023,26 @@ function parsePersistenceScore(value) {
     const score =
         parseFloat(
             String(value)
-                .replace("%", "")
+                .replace(
+                    "%",
+                    ""
+                )
                 .trim()
         );
 
 
-    if (!Number.isFinite(score)) {
+    if (
+        !Number.isFinite(
+            score
+        )
+    ) {
+
         return null;
+
     }
 
 
     return score;
-
-}
-
-
-/* =========================================================
-   PERSISTENCE FORMATTING
-========================================================= */
-
-function formatPersistenceScore(
-    score
-) {
-
-    if (
-        score === null ||
-        score === undefined ||
-        !Number.isFinite(score)
-    ) {
-
-        return "—";
-
-    }
-
-
-    return score.toFixed(3);
-
-}
-
-
-/* =========================================================
-   FORMAT PERSISTENCE
-========================================================= */
-
-function formatPersistence(
-    score,
-    category
-) {
-
-    if (
-        score === null ||
-        score === undefined ||
-        !Number.isFinite(score)
-    ) {
-
-        if (
-            category &&
-            String(category).trim() !== ""
-        ) {
-
-            return String(category);
-
-        }
-
-        return "—";
-
-    }
-
-
-    const formattedScore =
-        formatPersistenceScore(score);
-
-
-    if (
-        category &&
-        String(category).trim() !== ""
-    ) {
-
-        return `${formattedScore} (${category})`;
-
-    }
-
-
-    return formattedScore;
 
 }
 
@@ -998,9 +1054,14 @@ function formatPersistence(
 function updateDashboard() {
 
     updateCounts();
-    updateTable();
-    updateMap();
+
+    renderMarkers();
+
+    renderTable();
+
     updateAlerts();
+
+    updateFilterOptions();
 
 }
 
@@ -1024,72 +1085,58 @@ function updateCounts() {
     };
 
 
-    allEvents.forEach(event => {
+    allEvents.forEach(
+        event => {
 
-        if (
-            counts[
-                event.classification
-            ] !== undefined
-        ) {
+            const type =
+                normalizeType(
+                    event.predicted_event_type
+                );
 
-            counts[
-                event.classification
-            ]++;
+
+            if (
+                Object.prototype.hasOwnProperty.call(
+                    counts,
+                    type
+                )
+            ) {
+
+                counts[type]++;
+
+            }
 
         }
+    );
 
-    });
+
+    setText(
+        "total-sources",
+        allEvents.length
+    );
 
 
-    setElementText(
+    setText(
         "industrial-count",
         counts.Industrial
     );
 
 
-    setElementText(
+    setText(
         "forest-count",
-        counts["Forest/Natural"]
+        counts[
+            "Forest/Natural"
+        ]
     );
 
 
-    setElementText(
+    setText(
         "agricultural-count",
         counts.Agricultural
     );
 
 
-    setElementText(
+    setText(
         "other-count",
-        counts.Other
-    );
-
-
-    /*
-     * Support alternate count IDs
-     * that may already exist in the HTML.
-     */
-
-    setElementText(
-        "industrial-events",
-        counts.Industrial
-    );
-
-
-    setElementText(
-        "forest-events",
-        counts["Forest/Natural"]
-    );
-
-
-    setElementText(
-        "agricultural-events",
-        counts.Agricultural
-    );
-
-
-    setElementText(
-        "other-events",
         counts.Other
     );
 
@@ -1097,19 +1144,23 @@ function updateCounts() {
 
 
 /* =========================================================
-   SET ELEMENT TEXT
+   SET TEXT
 ========================================================= */
 
-function setElementText(
+function setText(
     id,
     value
 ) {
 
     const element =
-        document.getElementById(id);
+        document.getElementById(
+            id
+        );
 
 
-    if (element) {
+    if (
+        element
+    ) {
 
         element.textContent =
             value;
@@ -1120,32 +1171,156 @@ function setElementText(
 
 
 /* =========================================================
-   TABLE
+   FILTER OPTIONS
 ========================================================= */
 
-function updateTable() {
+function updateFilterOptions() {
 
-    const tbody =
+    const landcoverFilter =
         document.getElementById(
-            "event-table-body"
+            "landcover-filter"
         );
 
 
-    if (!tbody) {
+    if (
+        !landcoverFilter
+    ) {
+
         return;
+
+    }
+
+
+    const currentValue =
+        landcoverFilter.value;
+
+
+    const landcovers =
+        [
+            ...new Set(
+                allEvents
+                    .map(
+                        event =>
+                            event.landcover
+                    )
+                    .filter(
+                        value =>
+                            value &&
+                            value !== "Unknown"
+                    )
+            )
+        ]
+        .sort();
+
+
+    landcoverFilter.innerHTML = `
+
+        <option value="ALL">
+            All Land Covers
+        </option>
+
+    `;
+
+
+    landcovers.forEach(
+        landcover => {
+
+            const option =
+                document.createElement(
+                    "option"
+                );
+
+
+            option.value =
+                landcover;
+
+
+            option.textContent =
+                landcover;
+
+
+            landcoverFilter.appendChild(
+                option
+            );
+
+        }
+    );
+
+
+    if (
+        landcovers.includes(
+            currentValue
+        )
+    ) {
+
+        landcoverFilter.value =
+            currentValue;
+
+    }
+
+}
+
+
+/* =========================================================
+   TABLE
+========================================================= */
+
+function renderTable() {
+
+    const tbody =
+        document.getElementById(
+            "table-body"
+        );
+
+
+    if (
+        !tbody
+    ) {
+
+        return;
+
     }
 
 
     tbody.innerHTML = "";
 
 
+    if (
+        filteredEvents.length === 0
+    ) {
+
+        tbody.innerHTML = `
+
+            <tr>
+
+                <td
+                    colspan="9"
+                    style="
+                        text-align:center;
+                        padding:40px;
+                        color:#64748b;
+                    "
+                >
+                    No thermal sources match
+                    the selected filters.
+                </td>
+
+            </tr>
+
+        `;
+
+
+        updatePagination();
+
+        return;
+
+    }
+
+
     const totalPages =
-        Math.max(
-            1,
-            Math.ceil(
-                filteredEvents.length /
-                rowsPerPage
-            )
+        Math.ceil(
+            filteredEvents.length /
+            rowsPerPage
         );
 
 
@@ -1161,57 +1336,31 @@ function updateTable() {
 
 
     const start =
-        (currentPage - 1) *
+        (
+            currentPage - 1
+        ) *
         rowsPerPage;
-
-
-    const end =
-        start + rowsPerPage;
 
 
     const pageEvents =
         filteredEvents.slice(
             start,
-            end
+            start + rowsPerPage
         );
-
-
-    if (pageEvents.length === 0) {
-
-        const row =
-            document.createElement("tr");
-
-
-        row.innerHTML = `
-            <td colspan="9" class="empty-state">
-                No events found
-            </td>
-        `;
-
-
-        tbody.appendChild(row);
-
-
-        updatePagination(
-            0,
-            0
-        );
-
-        return;
-
-    }
 
 
     pageEvents.forEach(
         event => {
 
             const row =
-                document.createElement("tr");
+                document.createElement(
+                    "tr"
+                );
 
 
-            const confidence =
-                formatConfidence(
-                    event.confidence
+            const type =
+                normalizeType(
+                    event.predicted_event_type
                 );
 
 
@@ -1225,164 +1374,191 @@ function updateTable() {
             row.innerHTML = `
 
                 <td>
-                    ${escapeHTML(
-                        event.source_id
-                    )}
-                </td>
 
-                <td>
-                    <span class="classification-badge ${getClassificationClass(
-                        event.classification
-                    )}">
+                    <span class="source-id">
+
                         ${escapeHTML(
-                            event.classification
+                            event.source_id
                         )}
+
                     </span>
+
                 </td>
 
-                <td>
-                    ${confidence}
-                </td>
 
                 <td>
+
+                    <span
+                        class="event-badge ${getBadgeClass(type)}"
+                    >
+
+                        ${escapeHTML(
+                            type
+                        )}
+
+                    </span>
+
+                </td>
+
+
+                <td>
+
+                    ${formatConfidence(
+                        event.confidence
+                    )}
+
+                </td>
+
+
+                <td>
+
                     ${formatNumber(
                         event.latitude,
                         4
                     )}
+
                 </td>
 
+
                 <td>
+
                     ${formatNumber(
                         event.longitude,
                         4
                     )}
+
                 </td>
 
+
                 <td>
+
                     ${escapeHTML(
-                        event.land_cover ||
+                        event.landcover ||
                         "Unknown"
                     )}
+
                 </td>
 
+
                 <td>
-                    ${formatFRP(
-                        event.mean_frp
+
+                    ${formatNumber(
+                        event.mean_frp,
+                        2
                     )}
+
                 </td>
 
+
                 <td>
+
                     ${escapeHTML(
                         persistence
                     )}
+
                 </td>
 
+
                 <td>
+
                     <button
-                        class="table-action-btn"
-                        data-source-id="${escapeHTMLAttribute(
+                        class="view-source-btn"
+                        onclick="showEventById('${escapeAttribute(
                             event.source_id
-                        )}"
+                        )}')"
                     >
+
                         VIEW
+
                     </button>
+
                 </td>
 
             `;
 
 
-            tbody.appendChild(row);
+            tbody.appendChild(
+                row
+            );
 
         }
     );
 
 
-    updatePagination(
-        currentPage,
-        totalPages
-    );
+    updatePagination();
 
 }
 
 
 /* =========================================================
-   TABLE EVENT LISTENERS
+   PAGINATION
 ========================================================= */
 
-function initializeTableEvents() {
+function initializePagination() {
 
-    document.addEventListener(
-        "click",
-        event => {
-
-            const button =
-                event.target.closest(
-                    ".table-action-btn"
-                );
+    const previous =
+        document.getElementById(
+            "prev-page"
+        );
 
 
-            if (!button) {
-                return;
-            }
-
-
-            const sourceId =
-                button.dataset.sourceId;
-
-
-            const selected =
-                allEvents.find(
-                    item =>
-                        String(
-                            item.source_id
-                        ) ===
-                        String(
-                            sourceId
-                        )
-                );
-
-
-            if (selected) {
-
-                selectEvent(
-                    selected
-                );
-
-            }
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   SELECT EVENT
-========================================================= */
-
-function selectEvent(event) {
-
-    selectedEvent =
-        event;
-
-
-    updateSelectedEventPanel(
-        event
-    );
+    const next =
+        document.getElementById(
+            "next-page"
+        );
 
 
     if (
-        map &&
-        Number.isFinite(event.latitude) &&
-        Number.isFinite(event.longitude)
+        previous
     ) {
 
-        map.setView(
-            [
-                event.latitude,
-                event.longitude
-            ],
-            10
+        previous.addEventListener(
+            "click",
+            () => {
+
+                if (
+                    currentPage > 1
+                ) {
+
+                    currentPage--;
+
+                    renderTable();
+
+                }
+
+            }
+        );
+
+    }
+
+
+    if (
+        next
+    ) {
+
+        next.addEventListener(
+            "click",
+            () => {
+
+                const totalPages =
+                    Math.ceil(
+                        filteredEvents.length /
+                        rowsPerPage
+                    );
+
+
+                if (
+                    currentPage <
+                    totalPages
+                ) {
+
+                    currentPage++;
+
+                    renderTable();
+
+                }
+
+            }
         );
 
     }
@@ -1390,130 +1566,70 @@ function selectEvent(event) {
 }
 
 
-/* =========================================================
-   SELECTED EVENT DETAILS
-========================================================= */
+function updatePagination() {
 
-function updateSelectedEventPanel(
-    event
-) {
+    const totalPages =
+        Math.max(
+            1,
+            Math.ceil(
+                filteredEvents.length /
+                rowsPerPage
+            )
+        );
 
-    const container =
+
+    const pageNumber =
         document.getElementById(
-            "selected-event-details"
+            "page-number"
         );
 
 
-    if (!container) {
-        return;
+    if (
+        pageNumber
+    ) {
+
+        pageNumber.textContent =
+            `${currentPage} / ${totalPages}`;
+
     }
 
 
-    const confidence =
-        formatConfidence(
-            event.confidence
+    const previous =
+        document.getElementById(
+            "prev-page"
         );
 
 
-    const persistence =
-        formatPersistence(
-            event.persistence_score,
-            event.persistence_category
+    const next =
+        document.getElementById(
+            "next-page"
         );
 
 
-    container.innerHTML = `
+    if (
+        previous
+    ) {
 
-        <div class="detail-row">
-            <span>SOURCE ID</span>
-            <strong>
-                ${escapeHTML(
-                    event.source_id
-                )}
-            </strong>
-        </div>
+        previous.disabled =
+            currentPage <= 1;
 
-        <div class="detail-row">
-            <span>AI CLASSIFICATION</span>
-            <strong>
-                ${escapeHTML(
-                    event.classification
-                )}
-            </strong>
-        </div>
+    }
 
-        <div class="detail-row">
-            <span>CONFIDENCE</span>
-            <strong>
-                ${confidence}
-            </strong>
-        </div>
 
-        <div class="detail-row">
-            <span>LATITUDE</span>
-            <strong>
-                ${formatNumber(
-                    event.latitude,
-                    6
-                )}
-            </strong>
-        </div>
+    if (
+        next
+    ) {
 
-        <div class="detail-row">
-            <span>LONGITUDE</span>
-            <strong>
-                ${formatNumber(
-                    event.longitude,
-                    6
-                )}
-            </strong>
-        </div>
+        next.disabled =
+            currentPage >= totalPages;
 
-        <div class="detail-row">
-            <span>LAND COVER</span>
-            <strong>
-                ${escapeHTML(
-                    event.land_cover ||
-                    "Unknown"
-                )}
-            </strong>
-        </div>
-
-        <div class="detail-row">
-            <span>MEAN FRP</span>
-            <strong>
-                ${formatFRP(
-                    event.mean_frp
-                )}
-            </strong>
-        </div>
-
-        <div class="detail-row">
-            <span>PERSISTENCE SCORE</span>
-            <strong>
-                ${formatPersistenceScore(
-                    event.persistence_score
-                )}
-            </strong>
-        </div>
-
-        <div class="detail-row">
-            <span>PERSISTENCE CATEGORY</span>
-            <strong>
-                ${escapeHTML(
-                    event.persistence_category ||
-                    "—"
-                )}
-            </strong>
-        </div>
-
-    `;
+    }
 
 }
 
 
 /* =========================================================
-   CONFIDENCE FORMATTING
+   FORMAT HELPERS
 ========================================================= */
 
 function formatConfidence(
@@ -1523,7 +1639,9 @@ function formatConfidence(
     if (
         confidence === null ||
         confidence === undefined ||
-        !Number.isFinite(confidence)
+        !Number.isFinite(
+            confidence
+        )
     ) {
 
         return "—";
@@ -1531,14 +1649,15 @@ function formatConfidence(
     }
 
 
-    return `${confidence.toFixed(1)}%`;
+    return (
+        Number(
+            confidence
+        ).toFixed(1) +
+        "%"
+    );
 
 }
 
-
-/* =========================================================
-   NUMBER FORMATTING
-========================================================= */
 
 function formatNumber(
     value,
@@ -1558,25 +1677,24 @@ function formatNumber(
     }
 
 
-    return Number(value)
-        .toFixed(decimals);
+    return Number(
+        value
+    ).toFixed(
+        decimals
+    );
 
 }
 
 
-/* =========================================================
-   FRP FORMATTING
-========================================================= */
-
-function formatFRP(
-    value
+function formatPersistenceScore(
+    score
 ) {
 
     if (
-        value === null ||
-        value === undefined ||
+        score === null ||
+        score === undefined ||
         !Number.isFinite(
-            Number(value)
+            Number(score)
         )
     ) {
 
@@ -1585,132 +1703,89 @@ function formatFRP(
     }
 
 
-    return `${Number(value).toFixed(2)} MW`;
+    return Number(
+        score
+    ).toFixed(3);
 
 }
 
 
-/* =========================================================
-   CLASSIFICATION CSS CLASS
-========================================================= */
-
-function getClassificationClass(
-    classification
+function formatPersistence(
+    score,
+    category
 ) {
 
-    switch (
-        classification
-    ) {
-
-        case "Industrial":
-            return "industrial";
-
-        case "Forest/Natural":
-            return "forest";
-
-        case "Agricultural":
-            return "agricultural";
-
-        default:
-            return "other";
-
-    }
-
-}
-
-
-/* =========================================================
-   PAGINATION
-========================================================= */
-
-function updatePagination(
-    page,
-    totalPages
-) {
-
-    const pageNumber =
-        document.getElementById(
-            "page-number"
-        );
-
-
-    const previous =
-        document.getElementById(
-            "prev-page"
-        );
-
-
-    const next =
-        document.getElementById(
-            "next-page"
-        );
-
-
-    if (pageNumber) {
-
-        pageNumber.textContent =
-            totalPages > 0
-                ? `${page} / ${totalPages}`
-                : "0 / 0";
-
-    }
-
-
-    if (previous) {
-
-        previous.disabled =
-            page <= 1;
-
-    }
-
-
-    if (next) {
-
-        next.disabled =
-            page >= totalPages;
-
-    }
-
-}
-
-
-/* =========================================================
-   PAGINATION BUTTONS
-========================================================= */
-
-function goToPreviousPage() {
-
-    if (currentPage > 1) {
-
-        currentPage--;
-
-        updateTable();
-
-    }
-
-}
-
-
-function goToNextPage() {
-
-    const totalPages =
-        Math.max(
-            1,
-            Math.ceil(
-                filteredEvents.length /
-                rowsPerPage
-            )
+    const scoreText =
+        formatPersistenceScore(
+            score
         );
 
 
     if (
-        currentPage <
-        totalPages
+        scoreText === "—"
     ) {
 
-        currentPage++;
+        return (
+            category &&
+            String(
+                category
+            ).trim() !== ""
+                ? String(
+                    category
+                )
+                : "—"
+        );
 
-        updateTable();
+    }
+
+
+    if (
+        category &&
+        String(
+            category
+        ).trim() !== ""
+    ) {
+
+        return (
+            scoreText +
+            " (" +
+            String(
+                category
+            ) +
+            ")"
+        );
+
+    }
+
+
+    return scoreText;
+
+}
+
+
+/* =========================================================
+   BADGES
+========================================================= */
+
+function getBadgeClass(
+    type
+) {
+
+    switch (
+        type
+    ) {
+
+        case "Industrial":
+            return "badge-industrial";
+
+        case "Forest/Natural":
+            return "badge-forest";
+
+        case "Agricultural":
+            return "badge-agricultural";
+
+        default:
+            return "badge-other";
 
     }
 
@@ -1730,9 +1805,25 @@ function initializeMap() {
 
 
     if (
-        !mapElement ||
+        !mapElement
+    ) {
+
+        console.warn(
+            "Map element not found."
+        );
+
+        return;
+
+    }
+
+
+    if (
         typeof L === "undefined"
     ) {
+
+        console.error(
+            "Leaflet is not loaded."
+        );
 
         return;
 
@@ -1741,13 +1832,12 @@ function initializeMap() {
 
     map =
         L.map(
-            "map",
-            {
-                zoomControl: true
-            }
-        )
-        .setView(
-            [20.5937, 78.9629],
+            "map"
+        ).setView(
+            [
+                20.5937,
+                78.9629
+            ],
             5
         );
 
@@ -1755,27 +1845,32 @@ function initializeMap() {
     L.tileLayer(
         "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
         {
+            maxZoom: 19,
+
             attribution:
                 "&copy; OpenStreetMap contributors"
         }
-    ).addTo(map);
+    ).addTo(
+        map
+    );
 
 
     markersLayer =
         L.layerGroup()
-            .addTo(map);
+            .addTo(
+                map
+            );
 
 }
 
 
 /* =========================================================
-   UPDATE MAP
+   MAP MARKERS
 ========================================================= */
 
-function updateMap() {
+function renderMarkers() {
 
     if (
-        !map ||
         !markersLayer
     ) {
 
@@ -1785,6 +1880,9 @@ function updateMap() {
 
 
     markersLayer.clearLayers();
+
+
+    const bounds = [];
 
 
     filteredEvents.forEach(
@@ -1804,6 +1902,12 @@ function updateMap() {
             }
 
 
+            const type =
+                normalizeType(
+                    event.predicted_event_type
+                );
+
+
             const marker =
                 L.circleMarker(
                     [
@@ -1812,14 +1916,26 @@ function updateMap() {
                     ],
                     {
                         radius: 7,
-                        weight: 2,
-                        fillOpacity: 0.8
+
+                        fillColor:
+                            getEventColor(
+                                type
+                            ),
+
+                        color:
+                            "#ffffff",
+
+                        weight: 1,
+
+                        opacity: 0.9,
+
+                        fillOpacity: 0.85
                     }
                 );
 
 
             marker.bindPopup(
-                createMapPopup(
+                createPopup(
                     event
                 )
             );
@@ -1829,9 +1945,8 @@ function updateMap() {
                 "click",
                 () => {
 
-                    selectEvent(
-                        event
-                    );
+                    selectedEvent =
+                        event;
 
                 }
             );
@@ -1841,47 +1956,43 @@ function updateMap() {
                 markersLayer
             );
 
+
+            bounds.push(
+                [
+                    event.latitude,
+                    event.longitude
+                ]
+            );
+
         }
     );
 
 
     if (
-        filteredEvents.length > 0
+        bounds.length > 0
     ) {
 
-        const validEvents =
-            filteredEvents.filter(
-                event =>
-                    Number.isFinite(
-                        event.latitude
-                    ) &&
-                    Number.isFinite(
-                        event.longitude
-                    )
-            );
-
-
-        if (
-            validEvents.length > 0
-        ) {
-
-            const bounds =
-                L.latLngBounds(
-                    validEvents.map(
-                        event => [
-                            event.latitude,
-                            event.longitude
-                        ]
-                    )
-                );
-
+        try {
 
             map.fitBounds(
                 bounds,
                 {
-                    padding: [30, 30],
+                    padding: [
+                        30,
+                        30
+                    ],
+
                     maxZoom: 10
                 }
+            );
+
+        } catch (
+            error
+        ) {
+
+            console.warn(
+                "Could not fit map bounds.",
+                error
             );
 
         }
@@ -1892,16 +2003,48 @@ function updateMap() {
 
 
 /* =========================================================
+   MAP COLORS
+========================================================= */
+
+function getEventColor(
+    type
+) {
+
+    switch (
+        type
+    ) {
+
+        case "Industrial":
+            return "#ff4d5a";
+
+        case "Forest/Natural":
+            return "#22c55e";
+
+        case "Agricultural":
+            return "#f59e0b";
+
+        case "Other":
+            return "#94a3b8";
+
+        default:
+            return "#94a3b8";
+
+    }
+
+}
+
+
+/* =========================================================
    MAP POPUP
 ========================================================= */
 
-function createMapPopup(
+function createPopup(
     event
 ) {
 
-    const confidence =
-        formatConfidence(
-            event.confidence
+    const type =
+        normalizeType(
+            event.predicted_event_type
         );
 
 
@@ -1914,47 +2057,124 @@ function createMapPopup(
 
     return `
 
-        <div class="map-popup">
+        <div
+            style="
+                min-width:210px;
+                font-family:Arial,sans-serif;
+            "
+        >
 
-            <h3>
+            <div
+                style="
+                    font-size:10px;
+                    color:#94a3b8;
+                    letter-spacing:1px;
+                    margin-bottom:5px;
+                "
+            >
+
+                THERMAL SOURCE
+
+            </div>
+
+
+            <strong
+                style="
+                    font-size:14px;
+                    color:#e2e8f0;
+                "
+            >
+
                 ${escapeHTML(
                     event.source_id
                 )}
-            </h3>
 
-            <p>
-                <strong>Classification:</strong>
+            </strong>
+
+
+            <hr
+                style="
+                    border-color:#334155;
+                    margin:9px 0;
+                "
+            >
+
+
+            <div>
+
+                <b>AI Classification:</b>
+
                 ${escapeHTML(
-                    event.classification
+                    type
                 )}
-            </p>
 
-            <p>
-                <strong>Confidence:</strong>
-                ${confidence}
-            </p>
+            </div>
 
-            <p>
-                <strong>Land Cover:</strong>
+
+            <div>
+
+                <b>Confidence:</b>
+
+                ${formatConfidence(
+                    event.confidence
+                )}
+
+            </div>
+
+
+            <div>
+
+                <b>Land Cover:</b>
+
                 ${escapeHTML(
-                    event.land_cover ||
-                    "Unknown"
+                    event.landcover
                 )}
-            </p>
 
-            <p>
-                <strong>Mean FRP:</strong>
-                ${formatFRP(
+            </div>
+
+
+            <div>
+
+                <b>Mean FRP:</b>
+
+                ${formatNumber(
                     event.mean_frp
                 )}
-            </p>
+                MW
 
-            <p>
-                <strong>Persistence:</strong>
+            </div>
+
+
+            <div>
+
+                <b>Persistence:</b>
+
                 ${escapeHTML(
                     persistence
                 )}
-            </p>
+
+            </div>
+
+
+            <button
+                onclick="showEventById('${escapeAttribute(
+                    event.source_id
+                )}')"
+                style="
+                    margin-top:10px;
+                    width:100%;
+                    background:#18222d;
+                    color:#e2e8f0;
+                    border:1px solid #334155;
+                    padding:6px;
+                    border-radius:5px;
+                    cursor:pointer;
+                "
+            >
+
+                VIEW SOURCE DETAILS
+
+            </button>
 
         </div>
 
@@ -1964,138 +2184,64 @@ function createMapPopup(
 
 
 /* =========================================================
-   FILTER INITIALIZATION
+   SHOW EVENT
 ========================================================= */
 
-function initializeFilters() {
+function showEventById(
+    sourceId
+) {
 
-    const filterElements =
-        document.querySelectorAll(
-            "[data-filter]"
+    const event =
+        allEvents.find(
+            item =>
+                String(
+                    item.source_id
+                ) ===
+                String(
+                    sourceId
+                )
         );
 
 
-    filterElements.forEach(
-        element => {
+    if (
+        !event
+    ) {
 
-            element.addEventListener(
-                "click",
-                () => {
+        console.warn(
+            "Event not found:",
+            sourceId
+        );
 
-                    applyFilter(
-                        element.dataset.filter
-                    );
+        return;
 
-                }
-            );
+    }
 
-        }
+
+    selectedEvent =
+        event;
+
+
+    showEventDetails(
+        event
     );
 
 
-    const search =
-        document.getElementById(
-            "event-search"
-        );
+    if (
+        map &&
+        Number.isFinite(
+            event.latitude
+        ) &&
+        Number.isFinite(
+            event.longitude
+        )
+    ) {
 
-
-    if (search) {
-
-        search.addEventListener(
-            "input",
-            () => {
-
-                applyFilters();
-
-            }
-        );
-
-    }
-
-
-    const classification =
-        document.getElementById(
-            "classification-filter"
-        );
-
-
-    if (classification) {
-
-        classification.addEventListener(
-            "change",
-            () => {
-
-                applyFilters();
-
-            }
-        );
-
-    }
-
-
-    const confidence =
-        document.getElementById(
-            "confidence-filter"
-        );
-
-
-    if (confidence) {
-
-        confidence.addEventListener(
-            "change",
-            () => {
-
-                applyFilters();
-
-            }
-        );
-
-    }
-
-
-    const reset =
-        document.getElementById(
-            "reset-filters"
-        );
-
-
-    if (reset) {
-
-        reset.addEventListener(
-            "click",
-            resetFilters
-        );
-
-    }
-
-
-    const previous =
-        document.getElementById(
-            "prev-page"
-        );
-
-
-    if (previous) {
-
-        previous.addEventListener(
-            "click",
-            goToPreviousPage
-        );
-
-    }
-
-
-    const next =
-        document.getElementById(
-            "next-page"
-        );
-
-
-    if (next) {
-
-        next.addEventListener(
-            "click",
-            goToNextPage
+        map.setView(
+            [
+                event.latitude,
+                event.longitude
+            ],
+            10
         );
 
     }
@@ -2104,535 +2250,401 @@ function initializeFilters() {
 
 
 /* =========================================================
-   APPLY SINGLE FILTER
+   EVENT DETAILS
 ========================================================= */
 
-function applyFilter(
-    filter
+function showEventDetails(
+    event
 ) {
 
-    const classification =
-        document.getElementById(
-            "classification-filter"
-        );
+    const possibleContainers = [
+        "event-details",
+        "selected-event-details",
+        "source-details"
+    ];
 
 
-    if (classification) {
+    let container = null;
+
+
+    for (
+        const id of possibleContainers
+    ) {
+
+        const element =
+            document.getElementById(
+                id
+            );
+
 
         if (
-            filter === "all"
+            element
         ) {
 
-            classification.value =
-                "all";
+            container =
+                element;
 
-        } else {
-
-            classification.value =
-                filter;
+            break;
 
         }
 
     }
 
 
-    applyFilters();
+    if (
+        !container
+    ) {
+
+        return;
+
+    }
+
+
+    const type =
+        normalizeType(
+            event.predicted_event_type
+        );
+
+
+    container.innerHTML = `
+
+        <div class="detail-row">
+
+            <span>SOURCE ID</span>
+
+            <strong>
+                ${escapeHTML(
+                    event.source_id
+                )}
+            </strong>
+
+        </div>
+
+
+        <div class="detail-row">
+
+            <span>AI CLASSIFICATION</span>
+
+            <strong>
+                ${escapeHTML(
+                    type
+                )}
+            </strong>
+
+        </div>
+
+
+        <div class="detail-row">
+
+            <span>CONFIDENCE</span>
+
+            <strong>
+                ${formatConfidence(
+                    event.confidence
+                )}
+            </strong>
+
+        </div>
+
+
+        <div class="detail-row">
+
+            <span>LATITUDE</span>
+
+            <strong>
+                ${formatNumber(
+                    event.latitude,
+                    6
+                )}
+            </strong>
+
+        </div>
+
+
+        <div class="detail-row">
+
+            <span>LONGITUDE</span>
+
+            <strong>
+                ${formatNumber(
+                    event.longitude,
+                    6
+                )}
+            </strong>
+
+        </div>
+
+
+        <div class="detail-row">
+
+            <span>LAND COVER</span>
+
+            <strong>
+                ${escapeHTML(
+                    event.landcover
+                )}
+            </strong>
+
+        </div>
+
+
+        <div class="detail-row">
+
+            <span>MEAN FRP</span>
+
+            <strong>
+                ${formatNumber(
+                    event.mean_frp
+                )}
+                MW
+            </strong>
+
+        </div>
+
+
+        <div class="detail-row">
+
+            <span>PERSISTENCE SCORE</span>
+
+            <strong>
+                ${formatPersistenceScore(
+                    event.persistence_score
+                )}
+            </strong>
+
+        </div>
+
+
+        <div class="detail-row">
+
+            <span>PERSISTENCE CATEGORY</span>
+
+            <strong>
+                ${escapeHTML(
+                    event.persistence_category ||
+                    "—"
+                )}
+            </strong>
+
+        </div>
+
+    `;
 
 }
 
 
 /* =========================================================
-   APPLY FILTERS
+   END PART 1
 ========================================================= */
-
-function applyFilters() {
-
-    const searchElement =
-        document.getElementById(
-            "event-search"
+    const viewButton =
+        alertCard.querySelector(
+            ".alert-view-button"
         );
 
 
-    const classificationElement =
-        document.getElementById(
-            "classification-filter"
-        );
+    if (viewButton) {
+
+        viewButton.addEventListener(
+
+            "click",
+
+            function(event) {
+
+                event.stopPropagation();
 
 
-    const confidenceElement =
-        document.getElementById(
-            "confidence-filter"
-        );
-
-
-    const search =
-        searchElement
-            ? searchElement.value
-                .toLowerCase()
-                .trim()
-            : "";
-
-
-    const classification =
-        classificationElement
-            ? classificationElement.value
-            : "all";
-
-
-    const confidenceFilter =
-        confidenceElement
-            ? confidenceElement.value
-            : "all";
-
-
-    filteredEvents =
-        allEvents.filter(
-            event => {
-
-                const matchesSearch =
-                    !search ||
-                    String(
-                        event.source_id
-                    )
-                        .toLowerCase()
-                        .includes(search) ||
-                    String(
-                        event.classification
-                    )
-                        .toLowerCase()
-                        .includes(search) ||
-                    String(
-                        event.land_cover
-                    )
-                        .toLowerCase()
-                        .includes(search);
-
-
-                const matchesClassification =
-                    classification === "all" ||
-                    event.classification ===
-                        classification;
-
-
-                let matchesConfidence =
-                    true;
+                showEventDetails(
+                    alert
+                );
 
 
                 if (
-                    confidenceFilter !==
-                    "all"
+
+                    map &&
+
+                    Number.isFinite(
+                        alert.latitude
+                    ) &&
+
+                    Number.isFinite(
+                        alert.longitude
+                    )
+
                 ) {
 
-                    const confidence =
-                        event.confidence;
+                    map.setView(
 
+                        [
+                            alert.latitude,
+                            alert.longitude
+                        ],
 
-                    if (
-                        confidence === null
-                    ) {
+                        12
 
-                        matchesConfidence =
-                            false;
-
-                    } else if (
-                        confidenceFilter ===
-                        "high"
-                    ) {
-
-                        matchesConfidence =
-                            confidence >= 80;
-
-                    } else if (
-                        confidenceFilter ===
-                        "medium"
-                    ) {
-
-                        matchesConfidence =
-                            confidence >= 60 &&
-                            confidence < 80;
-
-                    } else if (
-                        confidenceFilter ===
-                        "low"
-                    ) {
-
-                        matchesConfidence =
-                            confidence < 60;
-
-                    }
-
-                }
-
-
-                return (
-                    matchesSearch &&
-                    matchesClassification &&
-                    matchesConfidence
-                );
-
-            }
-        );
-
-
-    currentPage = 1;
-
-
-    updateTable();
-    updateMap();
-    updateAlerts();
-
-}
-
-
-/* =========================================================
-   RESET FILTERS
-========================================================= */
-
-function resetFilters() {
-
-    const search =
-        document.getElementById(
-            "event-search"
-        );
-
-
-    const classification =
-        document.getElementById(
-            "classification-filter"
-        );
-
-
-    const confidence =
-        document.getElementById(
-            "confidence-filter"
-        );
-
-
-    if (search) {
-        search.value = "";
-    }
-
-
-    if (classification) {
-        classification.value = "all";
-    }
-
-
-    if (confidence) {
-        confidence.value = "all";
-    }
-
-
-    filteredEvents =
-        [...allEvents];
-
-
-    currentPage = 1;
-
-
-    updateTable();
-    updateMap();
-    updateAlerts();
-
-}
-
-
-/* =========================================================
-   ALERT CENTER
-========================================================= */
-
-function updateAlerts() {
-
-    alerts = [];
-
-
-    filteredEvents.forEach(
-        event => {
-
-            if (
-                event.classification !==
-                "Industrial"
-            ) {
-
-                return;
-
-            }
-
-
-            const confidence =
-                event.confidence;
-
-
-            if (
-                confidence === null ||
-                confidence === undefined
-            ) {
-
-                return;
-
-            }
-
-
-            let level =
-                "MONITOR";
-
-
-            if (
-                confidence >=
-                ALERT_THRESHOLDS.CRITICAL
-            ) {
-
-                level =
-                    "CRITICAL";
-
-            } else if (
-                confidence >=
-                ALERT_THRESHOLDS.HIGH
-            ) {
-
-                level =
-                    "HIGH";
-
-            }
-
-
-            alerts.push({
-
-                ...event,
-
-                alertLevel:
-                    level
-
-            });
-
-        }
-    );
-
-
-    /*
-     * Highest priority first.
-     */
-
-    const priority = {
-
-        CRITICAL: 1,
-
-        HIGH: 2,
-
-        MONITOR: 3
-
-    };
-
-
-    alerts.sort(
-        (a, b) =>
-            priority[
-                a.alertLevel
-            ] -
-            priority[
-                b.alertLevel
-            ]
-    );
-
-
-    updateAlertSummary();
-    renderAlerts();
-
-}
-
-
-/* =========================================================
-   ALERT SUMMARY
-========================================================= */
-
-function updateAlertSummary() {
-
-    const critical =
-        alerts.filter(
-            alert =>
-                alert.alertLevel ===
-                "CRITICAL"
-        ).length;
-
-
-    const high =
-        alerts.filter(
-            alert =>
-                alert.alertLevel ===
-                "HIGH"
-        ).length;
-
-
-    const monitor =
-        alerts.filter(
-            alert =>
-                alert.alertLevel ===
-                "MONITOR"
-        ).length;
-
-
-    setElementText(
-        "critical-alert-count",
-        critical
-    );
-
-
-    setElementText(
-        "high-alert-count",
-        high
-    );
-
-
-    setElementText(
-        "monitor-alert-count",
-        monitor
-    );
-
-}
-
-
-/* =========================================================
-   RENDER ALERTS
-========================================================= */
-
-function renderAlerts() {
-
-    const alertList =
-        document.getElementById(
-            "alert-list"
-        );
-
-
-    if (!alertList) {
-        return;
-    }
-
-
-    alertList.innerHTML = "";
-
-
-    if (alerts.length === 0) {
-
-        alertList.innerHTML = `
-
-            <div class="no-alerts">
-                No industrial alerts detected.
-            </div>
-
-        `;
-
-        return;
-
-    }
-
-
-    alerts.forEach(
-        alert => {
-
-            const item =
-                document.createElement(
-                    "div"
-                );
-
-
-            item.className =
-                `alert-item ${alert.alertLevel.toLowerCase()}`;
-
-
-            const persistence =
-                formatPersistence(
-                    alert.persistence_score,
-                    alert.persistence_category
-                );
-
-
-            item.innerHTML = `
-
-                <div class="alert-item-icon">
-                    ${getAlertIcon(
-                        alert.alertLevel
-                    )}
-                </div>
-
-                <div class="alert-item-main">
-
-                    <div class="alert-title">
-                        ${escapeHTML(
-                            alert.alertLevel
-                        )}
-                    </div>
-
-                    <div class="alert-source">
-                        ${escapeHTML(
-                            alert.source_id
-                        )}
-                    </div>
-
-                    <div class="alert-details">
-
-                        Confidence:
-                        <strong>
-                            ${formatConfidence(
-                                alert.confidence
-                            )}
-                        </strong>
-
-                        &nbsp;|&nbsp;
-
-                        Persistence:
-                        <strong>
-                            ${escapeHTML(
-                                persistence
-                            )}
-                        </strong>
-
-                    </div>
-
-                </div>
-
-            `;
-
-
-            item.addEventListener(
-                "click",
-                () => {
-
-                    selectEvent(
-                        alert
                     );
 
                 }
-            );
 
 
-            alertList.appendChild(
-                item
-            );
+                document
 
-        }
+                    .getElementById(
+                        "details-content"
+                    )
+
+                    ?.scrollIntoView({
+
+                        behavior:
+                            "smooth",
+
+                        block:
+                            "center"
+
+                    });
+
+            }
+
+        );
+
+    }
+
+
+    container.appendChild(
+        alertCard
     );
 
 }
 
 
 /* =========================================================
-   ALERT ICON
+   ALERT LOGIC
 ========================================================= */
 
-function getAlertIcon(
-    level
+function getAlertLevel(
+    type,
+    confidence
 ) {
+
+    /*
+        IMPORTANT ALERT CONDITION
+
+        Only Industrial events
+        create Industrial alerts.
+    */
+
+    if (
+
+        normalizeType(type) !==
+        "Industrial"
+
+    ) {
+
+        return "none";
+
+    }
+
+
+    if (
+
+        !Number.isFinite(
+            confidence
+        )
+
+    ) {
+
+        return "none";
+
+    }
+
+
+    /*
+        Confidence >= 80
+        → CRITICAL
+    */
+
+    if (
+
+        confidence >=
+        ALERT_RULES.HIGH
+
+    ) {
+
+        return "critical";
+
+    }
+
+
+    /*
+        Confidence >= 60
+        → HIGH
+    */
+
+    if (
+
+        confidence >=
+        ALERT_RULES.MEDIUM
+
+    ) {
+
+        return "high";
+
+    }
+
+
+    /*
+        Industrial confidence < 60
+        → MONITOR
+    */
+
+    return "monitor";
+
+}
+
+
+/* =========================================================
+   ALERT DISPLAY TEXT
+========================================================= */
+
+function getAlertDisplayText(
+    type,
+    confidence
+) {
+
+    const level =
+        getAlertLevel(
+            type,
+            confidence
+        );
+
 
     switch (level) {
 
-        case "CRITICAL":
-            return "⚠";
+        case "critical":
 
-        case "HIGH":
-            return "▲";
+            return
+
+                "CRITICAL ALERT: High-Confidence Industrial Event";
+
+
+        case "high":
+
+            return
+
+                "HIGH ALERT: Medium-Confidence Industrial Event";
+
+
+        case "monitor":
+
+            return
+
+                "MONITOR: Low-Confidence Industrial Event";
+
 
         default:
-            return "●";
+
+            return
+
+                "NORMAL: No Active Alert";
 
     }
 
@@ -2643,7 +2655,7 @@ function getAlertIcon(
    PREDICTION FORM
 ========================================================= */
 
-function initializePredictionForm() {
+function setupPredictionForm() {
 
     const form =
         document.getElementById(
@@ -2651,230 +2663,358 @@ function initializePredictionForm() {
         );
 
 
+    const button =
+        document.getElementById(
+            "predict-button"
+        );
+
+
     if (!form) {
+
         return;
+
     }
 
 
     form.addEventListener(
+
         "submit",
-        async event => {
+
+        async function(event) {
 
             event.preventDefault();
 
-            await submitPrediction(
-                form
-            );
+
+            if (button) {
+
+                button.disabled = true;
+
+                button.innerHTML =
+
+                    `
+                    <i
+                        class="
+                            fa-solid
+                            fa-spinner
+                            fa-spin
+                        "
+                    ></i>
+
+                    ANALYZING...
+                    `;
+
+            }
+
+
+            try {
+
+                const input =
+                    readPredictionForm();
+
+
+                let result =
+                    null;
+
+
+                /*
+                    TRY REAL ML BACKEND
+                */
+
+                try {
+
+                    const response =
+                        await fetch(
+
+                            BACKEND_URL,
+
+                            {
+
+                                method:
+                                    "POST",
+
+                                headers: {
+
+                                    "Content-Type":
+                                        "application/json"
+
+                                },
+
+                                body:
+
+                                    JSON.stringify(
+                                        input
+                                    )
+
+                            }
+
+                        );
+
+
+                    if (
+                        response.ok
+                    ) {
+
+                        result =
+                            await response.json();
+
+                    }
+
+                }
+
+                catch (
+                    backendError
+                ) {
+
+                    console.warn(
+
+                        "Backend unavailable. Using frontend fallback.",
+
+                        backendError
+
+                    );
+
+                }
+
+
+                /*
+                    FRONTEND FALLBACK
+                */
+
+                if (!result) {
+
+                    result =
+                        localPredictionFallback(
+                            input
+                        );
+
+                }
+
+
+                const eventRecord =
+                    normalizePredictionResponse(
+
+                        result,
+
+                        input
+
+                    );
+
+
+                /*
+                    SAVE TO DATABASE
+                */
+
+                saveEventToDatabase(
+                    eventRecord
+                );
+
+
+                /*
+                    ADD TO CURRENT EVENTS
+                */
+
+                upsertEvent(
+                    eventRecord
+                );
+
+
+                /*
+                    UPDATE UI
+                */
+
+                showPredictionResult(
+                    eventRecord
+                );
+
+
+                updateDashboard();
+
+                renderMarkers();
+
+                renderTable();
+
+                updateAlerts();
+
+                updateDatabaseStatus();
+
+
+                /*
+                    SHOW NEW HOTSPOT
+                */
+
+                if (
+
+                    map &&
+
+                    Number.isFinite(
+                        eventRecord.latitude
+                    ) &&
+
+                    Number.isFinite(
+                        eventRecord.longitude
+                    )
+
+                ) {
+
+                    map.setView(
+
+                        [
+                            eventRecord.latitude,
+                            eventRecord.longitude
+                        ],
+
+                        12
+
+                    );
+
+
+                    showEventDetails(
+                        eventRecord
+                    );
+
+                }
+
+            }
+
+            catch (error) {
+
+                console.error(
+
+                    "Prediction failed:",
+
+                    error
+
+                );
+
+
+                showPredictionError(
+
+                    error.message ||
+
+                    "Prediction failed."
+
+                );
+
+            }
+
+            finally {
+
+                if (button) {
+
+                    button.disabled =
+                        false;
+
+
+                    button.innerHTML =
+
+                        `
+                        <i
+                            class="
+                                fa-solid
+                                fa-wand-magic-sparkles
+                            "
+                        ></i>
+
+                        PREDICT EVENT
+                        `;
+
+                }
+
+            }
 
         }
+
     );
 
 }
 
 
 /* =========================================================
-   SUBMIT PREDICTION
+   READ PREDICTION FORM
 ========================================================= */
 
-async function submitPrediction(
-    form
-) {
+function readPredictionForm() {
 
-    const button =
-        form.querySelector(
-            "button[type='submit']"
-        );
+    const get =
+        function(id) {
 
-
-    const result =
-        document.getElementById(
-            "prediction-result"
-        );
+            const element =
+                document.getElementById(
+                    id
+                );
 
 
-    try {
+            return element
+                ? element.value
+                : "";
 
-        if (button) {
-
-            button.disabled =
-                true;
-
-            button.textContent =
-                "PREDICTING...";
-
-        }
-
-
-        const formData =
-            new FormData(form);
-
-
-        const payload = {};
-
-
-        formData.forEach(
-            (value, key) => {
-
-                payload[key] =
-                    value;
-
-            }
-        );
-
-
-        const response =
-            await fetch(
-                BACKEND_URL,
-                {
-                    method: "POST",
-
-                    headers: {
-                        "Content-Type":
-                            "application/json"
-                    },
-
-                    body:
-                        JSON.stringify(
-                            payload
-                        )
-                }
-            );
-
-
-        if (!response.ok) {
-
-            throw new Error(
-                `Backend returned ${response.status}`
-            );
-
-        }
-
-
-        const data =
-            await response.json();
-
-
-        const prediction =
-            normalizePredictionResponse(
-                data
-            );
-
-
-        displayPredictionResult(
-            prediction
-        );
-
-
-    } catch (error) {
-
-        console.error(
-            "Prediction error:",
-            error
-        );
-
-
-        displayPredictionError(
-            "Prediction service unavailable. Please make sure the local backend is running."
-        );
-
-    } finally {
-
-        if (button) {
-
-            button.disabled =
-                false;
-
-            button.textContent =
-                "PREDICT EVENT";
-
-        }
-
-    }
-
-}
-
-
-/* =========================================================
-   NORMALIZE PREDICTION RESPONSE
-========================================================= */
-
-function normalizePredictionResponse(
-    data
-) {
-
-    const classification =
-        getValue(
-            data,
-            [
-                "classification",
-                "prediction",
-                "predicted_class",
-                "class",
-                "label"
-            ]
-        ) || "Other";
-
-
-    const confidence =
-        parseConfidence(
-            getValue(
-                data,
-                [
-                    "confidence_pct",
-                    "confidence_percent",
-                    "confidence",
-                    "model_confidence"
-                ]
-            )
-        );
-
-
-    const persistenceScore =
-        parsePersistenceScore(
-            getValue(
-                data,
-                [
-                    "persistence_score"
-                ]
-            )
-        );
-
-
-    const persistentFlag =
-        getValue(
-            data,
-            [
-                "persistent_flag"
-            ]
-        );
-
-
-    const persistenceCategory =
-        getValue(
-            data,
-            [
-                "persistence_category"
-            ]
-        );
+        };
 
 
     return {
 
-        classification:
-            normalizeClassification(
-                classification
+        latitude:
+            Number(
+                get("latitude")
             ),
 
-        confidence,
+        longitude:
+            Number(
+                get("longitude")
+            ),
 
-        persistence_score:
-            persistenceScore,
+        mean_frp:
+            Number(
+                get("mean_frp")
+            ),
 
-        persistent_flag:
-            persistentFlag,
+        max_frp:
+            Number(
+                get("max_frp")
+            ),
 
-        persistence_category:
-            persistenceCategory
+        mean_brightness:
+            Number(
+                get("mean_brightness")
+            ),
+
+        max_brightness:
+            Number(
+                get("max_brightness")
+            ),
+
+        nearest_facility_type:
+            get("facility_type"),
+
+        distance_to_industry_km:
+            Number(
+                get("distance_industry")
+            ),
+
+        industrial_facilities_1km:
+            Number(
+                get("facilities_1km")
+            ),
+
+        industrial_facilities_5km:
+            Number(
+                get("facilities_5km")
+            ),
+
+        total_detections:
+            Number(
+                get("total_detections")
+            ),
+
+        active_days:
+            Number(
+                get("active_days")
+            ),
+
+        observation_span_days:
+            Number(
+                get("observation_span")
+            )
 
     };
 
@@ -2882,138 +3022,887 @@ function normalizePredictionResponse(
 
 
 /* =========================================================
-   DISPLAY PREDICTION RESULT
+   FRONTEND FALLBACK PREDICTION
 ========================================================= */
 
-function displayPredictionResult(
-    prediction
+function localPredictionFallback(input) {
+
+    const industrialContext =
+
+        [
+
+            "Refinery",
+
+            "Power Plant",
+
+            "Mine",
+
+            "Industrial Area",
+
+            "Factory"
+
+        ]
+
+        .includes(
+            input.nearest_facility_type
+        );
+
+
+    const closeToIndustry =
+
+        Number.isFinite(
+            input.distance_to_industry_km
+        )
+
+        &&
+
+        input.distance_to_industry_km <= 5;
+
+
+    const manyFacilities =
+
+        (
+
+            input.industrial_facilities_1km || 0
+
+        ) >= 1
+
+        ||
+
+        (
+
+            input.industrial_facilities_5km || 0
+
+        ) >= 3;
+
+
+    const strongThermal =
+
+        (
+
+            input.max_frp || 0
+
+        ) >= 50
+
+        ||
+
+        (
+
+            input.max_brightness || 0
+
+        ) >= 340;
+
+
+    const persistent =
+
+        (
+
+            input.active_days || 0
+
+        ) >= 5
+
+        ||
+
+        (
+
+            input.total_detections || 0
+
+        ) >= 10;
+
+
+    let score = 0;
+
+
+    if (
+        industrialContext
+    ) {
+
+        score += 30;
+
+    }
+
+
+    if (
+        closeToIndustry
+    ) {
+
+        score += 20;
+
+    }
+
+
+    if (
+        manyFacilities
+    ) {
+
+        score += 15;
+
+    }
+
+
+    if (
+        strongThermal
+    ) {
+
+        score += 20;
+
+    }
+
+
+    if (
+        persistent
+    ) {
+
+        score += 15;
+
+    }
+
+
+    let type =
+        "Other";
+
+
+    if (
+
+        industrialContext &&
+
+        (
+
+            strongThermal ||
+
+            persistent ||
+
+            closeToIndustry
+
+        )
+
+    ) {
+
+        type =
+            "Industrial";
+
+    }
+
+    else if (
+
+        persistent &&
+
+        !industrialContext
+
+    ) {
+
+        type =
+            "Forest/Natural";
+
+    }
+
+    else if (
+
+        (
+
+            input.mean_frp || 0
+
+        ) >= 15
+
+    ) {
+
+        type =
+            "Agricultural";
+
+    }
+
+
+    let confidence =
+
+        Math.max(
+
+            45,
+
+            Math.min(
+
+                98,
+
+                45 + score
+
+            )
+
+        );
+
+
+    /*
+        Non-industrial events
+        should not trigger Industrial alerts.
+    */
+
+    if (
+
+        type !==
+        "Industrial"
+
+    ) {
+
+        confidence =
+            Math.min(
+                confidence,
+                59
+            );
+
+    }
+
+
+    return {
+
+        predicted_event_type:
+            type,
+
+        confidence_pct:
+            confidence
+
+    };
+
+}
+
+
+function calculatePredictionPersistence(input) {
+
+    const total =
+        Math.max(
+            0,
+            Number(
+                input.total_detections
+            ) || 0
+        );
+
+
+    const active =
+        Math.max(
+            0,
+            Number(
+                input.active_days
+            ) || 0
+        );
+
+
+    const span =
+        Math.max(
+            0,
+            Number(
+                input.observation_span_days
+            ) || 0
+        );
+
+
+    if (
+        !total &&
+        !active &&
+        !span
+    ) {
+
+        return 0;
+
+    }
+
+
+    const recurrence =
+        Math.min(
+            1,
+            active / 7
+        );
+
+
+    const spanComponent =
+        Math.min(
+            1,
+            span / 5
+        );
+
+
+    const frequency =
+        Math.min(
+            1,
+            total /
+            Math.max(
+                1,
+                active * 10
+            )
+        );
+
+
+    return
+
+        0.40 * recurrence +
+
+        0.30 * spanComponent +
+
+        0.30 * frequency;
+
+}
+
+
+/* =========================================================
+   NORMALIZE BACKEND RESPONSE
+========================================================= */
+
+function normalizePredictionResponse(
+    result,
+    input
 ) {
 
-    const result =
+    const type =
+
+        result.predicted_event_type ||
+
+        result.event_type ||
+
+        result.classification ||
+
+        result.predicted_type ||
+
+        result.prediction ||
+
+        "Other";
+
+
+    const confidence =
+        parseConfidence(
+
+            result.confidence_pct ??
+
+            result.confidence ??
+
+            result.prediction_confidence ??
+
+            result.probability ??
+
+            result.score
+
+        );
+
+
+    return normalizeEvent(
+
+        {
+
+            source_id:
+
+                result.source_id ||
+
+                `PRED_${Date.now()}`,
+
+
+            predicted_event_type:
+                type,
+
+
+            confidence_pct:
+                confidence,
+
+
+            latitude:
+                input.latitude,
+
+
+            longitude:
+                input.longitude,
+
+
+            mean_frp:
+                input.mean_frp,
+
+
+            max_frp:
+                input.max_frp,
+
+
+            mean_brightness:
+                input.mean_brightness,
+
+
+            max_brightness:
+                input.max_brightness,
+
+
+            nearest_facility_type:
+                input.nearest_facility_type,
+
+
+            mean_distance_to_industry_km:
+                input.distance_to_industry_km,
+
+
+            mean_industrial_facilities_1km:
+                input.industrial_facilities_1km,
+
+
+            mean_industrial_facilities_5km:
+                input.industrial_facilities_5km,
+
+
+            total_detections:
+                input.total_detections,
+
+
+            active_days:
+                input.active_days,
+
+
+            observation_span_days:
+                input.observation_span_days,
+
+            persistence_score:
+
+                result.persistence_score ??
+
+                calculatePredictionPersistence(
+                    input
+                ),
+
+            persistent_flag:
+
+                result.persistent_flag ??
+
+                (
+                    calculatePredictionPersistence(
+                        input
+                    ) >= 0.60
+                ),
+
+            persistence_category:
+
+                result.persistence_category ||
+
+                persistenceCategory(
+                    calculatePredictionPersistence(
+                        input
+                    )
+                ),
+
+
+            landcover_class:
+
+                result.landcover_class ||
+
+                result.landcover ||
+
+                "Unknown"
+
+        }
+
+    );
+
+}
+
+
+/* =========================================================
+   SHOW PREDICTION RESULT
+========================================================= */
+
+function showPredictionResult(event) {
+
+    const resultBox =
         document.getElementById(
             "prediction-result"
         );
 
 
-    if (result) {
+    if (!resultBox) {
 
-        result.classList.add(
-            "show"
-        );
+        return;
 
     }
 
 
-    const classification =
-        document.getElementById(
-            "result-classification"
+    const type =
+        normalizeType(
+            event.predicted_event_type
         );
-
-
-    if (classification) {
-
-        classification.textContent =
-            prediction.classification;
-
-    }
 
 
     const confidence =
+        event.confidence;
+
+
+    const color =
+        getEventColor(
+            type
+        );
+
+
+    resultBox.classList.remove(
+        "hidden"
+    );
+
+
+    const icon =
+        document.getElementById(
+            "result-icon"
+        );
+
+
+    const typeElement =
+        document.getElementById(
+            "result-type"
+        );
+
+
+    const messageElement =
+        document.getElementById(
+            "result-message"
+        );
+
+
+    const confidenceElement =
         document.getElementById(
             "result-confidence-value"
         );
 
 
-    if (confidence) {
-
-        confidence.textContent =
-            formatConfidence(
-                prediction.confidence
-            );
-
-    }
-
-
-    const persistence =
+    const persistenceElement =
         document.getElementById(
             "result-persistence-value"
         );
 
 
-    if (persistence) {
+    const persistenceCategoryElement =
+        document.getElementById(
+            "result-persistence-category"
+        );
 
-        persistence.textContent =
-            formatPersistence(
-                prediction.persistence_score,
-                prediction.persistence_category
+
+    const fill =
+        document.getElementById(
+            "result-confidence-fill"
+        );
+
+
+    if (icon) {
+
+        icon.style.color =
+            color;
+
+        icon.style.borderColor =
+            color;
+
+        icon.style.background =
+            `${color}18`;
+
+    }
+
+
+    if (typeElement) {
+
+        typeElement.textContent =
+            type;
+
+        typeElement.style.color =
+            color;
+
+    }
+
+
+    if (messageElement) {
+
+        messageElement.textContent =
+
+            getAlertDisplayText(
+
+                type,
+
+                confidence
+
             );
 
     }
 
 
-    const badge =
+    if (confidenceElement) {
+
+        confidenceElement.textContent =
+            formatConfidence(
+                confidence
+            );
+
+    }
+
+
+    if (persistenceElement) {
+
+        persistenceElement.textContent =
+            formatPersistence(
+                event.persistence_score
+            );
+
+    }
+
+
+    if (persistenceCategoryElement) {
+
+        persistenceCategoryElement.textContent =
+
+            event.persistence_category ||
+
+            persistenceCategory(
+                event.persistence_score
+            );
+
+    }
+
+
+    if (fill) {
+
+        fill.style.width =
+
+            `${confidenceWidth(
+                confidence
+            )}%`;
+
+
+        fill.style.background =
+            color;
+
+    }
+
+}
+
+
+/* =========================================================
+   SHOW PREDICTION ERROR
+========================================================= */
+
+function showPredictionError(message) {
+
+    const resultBox =
         document.getElementById(
-            "prediction-alert-badge"
+            "prediction-result"
         );
 
 
-    if (badge) {
+    if (!resultBox) {
 
-        badge.className =
-            "prediction-alert-badge";
+        alert(message);
+
+        return;
+
+    }
+
+
+    resultBox.classList.remove(
+        "hidden"
+    );
+
+
+    setText(
+        "result-type",
+        "Prediction Error"
+    );
+
+
+    setText(
+        "result-message",
+        message
+    );
+
+
+    setText(
+        "result-confidence-value",
+        "N/A"
+    );
+
+
+    const fill =
+        document.getElementById(
+            "result-confidence-fill"
+        );
+
+
+    if (fill) {
+
+        fill.style.width =
+            "0%";
+
+    }
+
+}
+
+
+/* =========================================================
+   ADD / UPDATE EVENT
+========================================================= */
+
+function upsertEvent(eventRecord) {
+
+    const id =
+        String(
+            eventRecord.source_id
+        );
+
+
+    const index =
+        allEvents.findIndex(
+
+            event =>
+
+                String(
+                    event.source_id
+                )
+
+                ===
+
+                id
+
+        );
+
+
+    if (
+        index >= 0
+    ) {
+
+        allEvents[index] =
+            eventRecord;
+
+    }
+
+    else {
+
+        allEvents.push(
+            eventRecord
+        );
+
+    }
+
+
+    filteredEvents =
+        [...allEvents];
+
+
+    populateLandCoverFilter();
+
+}
+
+
+/* =========================================================
+   SAVE TO DATABASE
+========================================================= */
+
+function saveEventToDatabase(eventRecord) {
+
+    const database =
+        loadDatabase();
+
+
+    const id =
+        String(
+            eventRecord.source_id
+        );
+
+
+    const index =
+        database.findIndex(
+
+            event =>
+
+                String(
+                    event.source_id
+                )
+
+                ===
+
+                id
+
+        );
+
+
+    if (
+        index >= 0
+    ) {
+
+        database[index] =
+            eventRecord;
+
+    }
+
+    else {
+
+        database.push(
+            eventRecord
+        );
+
+    }
+
+
+    localStorage.setItem(
+
+        STORAGE_KEY,
+
+        JSON.stringify(
+            database
+        )
+
+    );
+
+}
+
+
+/* =========================================================
+   LOAD DATABASE
+========================================================= */
+
+function loadDatabase() {
+
+    try {
+
+        const raw =
+            localStorage.getItem(
+                STORAGE_KEY
+            );
+
+
+        if (!raw) {
+
+            return [];
+
+        }
+
+
+        const data =
+            JSON.parse(
+                raw
+            );
 
 
         if (
-            prediction.classification ===
-            "Industrial" &&
-            prediction.confidence !== null
+            !Array.isArray(data)
         ) {
 
-            if (
-                prediction.confidence >=
-                ALERT_THRESHOLDS.CRITICAL
-            ) {
-
-                badge.textContent =
-                    "CRITICAL";
-
-                badge.classList.add(
-                    "critical"
-                );
-
-            } else if (
-                prediction.confidence >=
-                ALERT_THRESHOLDS.HIGH
-            ) {
-
-                badge.textContent =
-                    "HIGH";
-
-                badge.classList.add(
-                    "high"
-                );
-
-            } else {
-
-                badge.textContent =
-                    "MONITOR";
-
-                badge.classList.add(
-                    "monitor"
-                );
-
-            }
-
-        } else {
-
-            badge.textContent =
-                "NO INDUSTRIAL ALERT";
-
-            badge.classList.add(
-                "normal"
-            );
+            return [];
 
         }
+
+
+        return data
+
+            .map(
+                normalizeEvent
+            )
+
+            .filter(
+                isValidEvent
+            );
+
+    }
+
+    catch (error) {
+
+        console.error(
+
+            "Database read error:",
+
+            error
+
+        );
+
+
+        return [];
 
     }
 
@@ -3021,66 +3910,81 @@ function displayPredictionResult(
 
 
 /* =========================================================
-   PREDICTION ERROR
+   RESTORE DATABASE
 ========================================================= */
 
-function displayPredictionError(
-    message
-) {
+function restoreDatabase() {
 
-    const result =
-        document.getElementById(
-            "prediction-result"
-        );
+    const saved =
+        loadDatabase();
 
 
-    if (result) {
+    if (
+        saved.length > 0
+    ) {
 
-        result.classList.add(
-            "show"
-        );
-
-    }
-
-
-    const classification =
-        document.getElementById(
-            "result-classification"
-        );
+        allEvents =
+            saved;
 
 
-    if (classification) {
+        filteredEvents =
+            [...saved];
 
-        classification.textContent =
-            message;
+
+        populateLandCoverFilter();
+
+        updateDashboard();
+
+        renderMarkers();
+
+        renderTable();
+
+        updateAlerts();
 
     }
 
 
-    const confidence =
+    updateDatabaseStatus();
+
+}
+
+
+/* =========================================================
+   DATABASE STATUS
+========================================================= */
+
+function updateDatabaseStatus() {
+
+    const element =
         document.getElementById(
-            "result-confidence-value"
+            "database-status"
         );
 
 
-    if (confidence) {
+    if (!element) {
 
-        confidence.textContent =
-            "—";
+        return;
 
     }
 
 
-    const persistence =
-        document.getElementById(
-            "result-persistence-value"
-        );
+    const count =
+        loadDatabase().length;
 
 
-    if (persistence) {
+    if (
+        count > 0
+    ) {
 
-        persistence.textContent =
-            "—";
+        element.textContent =
+            `DATABASE: ${count} SAVED`;
+
+    }
+
+    else {
+
+        element.textContent =
+            "DATABASE READY";
 
     }
 
@@ -3088,157 +3992,247 @@ function displayPredictionError(
 
 
 /* =========================================================
-   NAVIGATION
+   CLEAR DATABASE
 ========================================================= */
 
-function initializeNavigation() {
+function clearSavedDatabase() {
 
-    const links =
-        document.querySelectorAll(
-            "[data-section]"
-        );
-
-
-    links.forEach(
-        link => {
-
-            link.addEventListener(
-                "click",
-                event => {
-
-                    event.preventDefault();
-
-
-                    const section =
-                        link.dataset.section;
-
-
-                    showSection(
-                        section
-                    );
-
-                }
-            );
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   SHOW SECTION
-========================================================= */
-
-function showSection(
-    sectionId
-) {
-
-    const sections =
-        document.querySelectorAll(
-            ".dashboard-section"
-        );
-
-
-    sections.forEach(
-        section => {
-
-            section.classList.remove(
-                "active"
-            );
-
-        }
+    localStorage.removeItem(
+        STORAGE_KEY
     );
 
 
-    const target =
-        document.getElementById(
-            sectionId
-        );
-
-
-    if (target) {
-
-        target.classList.add(
-            "active"
-        );
-
-    }
-
-
-    const navLinks =
-        document.querySelectorAll(
-            "[data-section]"
-        );
-
-
-    navLinks.forEach(
-        link => {
-
-            link.classList.toggle(
-                "active",
-                link.dataset.section ===
-                    sectionId
-            );
-
-        }
-    );
+    updateDatabaseStatus();
 
 }
 
 
 /* =========================================================
-   DATA ERROR
+   HELPER UTILITIES
 ========================================================= */
 
-function showDataError(
-    message
-) {
-
-    console.error(message);
-
-
-    const table =
-        document.getElementById(
-            "event-table-body"
-        );
-
-
-    if (table) {
-
-        table.innerHTML = `
-
-            <tr>
-
-                <td
-                    colspan="9"
-                    class="empty-state error"
-                >
-                    ${escapeHTML(
-                        message
-                    )}
-                </td>
-
-            </tr>
-
-        `;
-
-    }
-
-}
-
-
-/* =========================================================
-   HTML ESCAPING
-========================================================= */
-
-function escapeHTML(
-    value
+function confidenceWidth(
+    confidence
 ) {
 
     if (
+
+        !Number.isFinite(
+            confidence
+        )
+
+    ) {
+
+        return 0;
+
+    }
+
+
+    return Math.max(
+
+        0,
+
+        Math.min(
+            100,
+            confidence
+        )
+
+    );
+
+}
+
+
+function detailItem(
+    label,
+    value
+) {
+
+    const safeValue =
+
+        value !== null &&
+
+        value !== undefined &&
+
+        value !== ""
+
+            ?
+
+            escapeHTML(
+                String(value)
+            )
+
+            :
+
+            "—";
+
+
+    return `
+
+        <div class="detail-item">
+
+            <span class="detail-label">
+
+                ${escapeHTML(
+                    label
+                )}
+
+            </span>
+
+
+            <span class="detail-value">
+
+                ${safeValue}
+
+            </span>
+
+        </div>
+
+    `;
+
+}
+
+
+function setText(
+    id,
+    text
+) {
+
+    const element =
+        document.getElementById(
+            id
+        );
+
+
+    if (element) {
+
+        element.textContent =
+            text;
+
+    }
+
+}
+
+
+function formatConfidence(
+    confidence
+) {
+
+    if (
+
+        !Number.isFinite(
+            confidence
+        )
+
+    ) {
+
+        return "N/A";
+
+    }
+
+
+    return `${confidence.toFixed(1)}%`;
+
+}
+
+
+function formatCoordinate(
+    coordinate
+) {
+
+    if (
+
+        !Number.isFinite(
+            coordinate
+        )
+
+    ) {
+
+        return "—";
+
+    }
+
+
+    return coordinate.toFixed(
+        4
+    );
+
+}
+
+
+function formatNumber(
+    number
+) {
+
+    if (
+
+        !Number.isFinite(
+            number
+        )
+
+    ) {
+
+        return "—";
+
+    }
+
+
+    return number.toLocaleString();
+
+}
+
+
+function formatDistance(
+    distance
+) {
+
+    if (
+
+        !Number.isFinite(
+            distance
+        )
+
+    ) {
+
+        return "—";
+
+    }
+
+
+    return `${distance.toFixed(2)} km`;
+
+}
+
+
+function formatDays(
+    days
+) {
+
+    if (
+
+        !Number.isFinite(
+            days
+        )
+
+    ) {
+
+        return "—";
+
+    }
+
+
+    return `${days} days`;
+
+}
+
+
+function escapeHTML(value) {
+
+    if (
+
         value === null ||
+
         value === undefined
+
     ) {
 
         return "";
@@ -3247,22 +4241,27 @@ function escapeHTML(
 
 
     return String(value)
+
         .replace(
             /&/g,
             "&amp;"
         )
+
         .replace(
             /</g,
             "&lt;"
         )
+
         .replace(
             />/g,
             "&gt;"
         )
+
         .replace(
             /"/g,
             "&quot;"
         )
+
         .replace(
             /'/g,
             "&#039;"
@@ -3272,115 +4271,167 @@ function escapeHTML(
 
 
 /* =========================================================
-   ATTRIBUTE ESCAPING
+   EVENT LISTENERS
 ========================================================= */
 
-function escapeHTMLAttribute(
-    value
-) {
+function setupEventListeners() {
 
-    return escapeHTML(
-        value
+    const typeFilter =
+        document.getElementById(
+            "type-filter"
+        );
+
+
+    const searchInput =
+        document.getElementById(
+            "search-input"
+        );
+
+
+    const landcoverFilter =
+        document.getElementById(
+            "landcover-filter"
+        );
+
+
+    const confidenceFilter =
+        document.getElementById(
+            "confidence-filter"
+        );
+
+
+    if (typeFilter) {
+
+        typeFilter.addEventListener(
+
+            "change",
+
+            applyFilters
+
+        );
+
+    }
+
+
+    if (searchInput) {
+
+        searchInput.addEventListener(
+
+            "input",
+
+            applyFilters
+
+        );
+
+    }
+
+
+    if (landcoverFilter) {
+
+        landcoverFilter.addEventListener(
+
+            "change",
+
+            applyFilters
+
+        );
+
+    }
+
+
+    if (confidenceFilter) {
+
+        confidenceFilter.addEventListener(
+
+            "change",
+
+            applyFilters
+
+        );
+
+    }
+
+
+    const resetButton =
+        document.getElementById(
+            "reset-btn"
+        );
+
+
+    if (resetButton) {
+
+        resetButton.addEventListener(
+
+            "click",
+
+            function() {
+
+                if (typeFilter) {
+
+                    typeFilter.value =
+                        "ALL";
+
+                }
+
+
+                if (searchInput) {
+
+                    searchInput.value =
+                        "";
+
+                }
+
+
+                if (landcoverFilter) {
+
+                    landcoverFilter.value =
+                        "ALL";
+
+                }
+
+
+                if (confidenceFilter) {
+
+                    confidenceFilter.value =
+                        "0";
+
+                }
+
+
+                applyFilters();
+
+            }
+
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   DATA ERROR HANDLER
+========================================================= */
+
+function showDataError() {
+
+    console.warn(
+
+        "predictions.csv could not be loaded. " +
+
+        "Saved database records will still be available."
+
     );
 
-}
 
+    updateDatabaseStatus();
 
-/* =========================================================
-   STORAGE HELPERS
-========================================================= */
+    updateDashboard();
 
-function saveEventsToStorage() {
+    renderMarkers();
 
-    try {
+    renderTable();
 
-        localStorage.setItem(
-            STORAGE_KEY,
-            JSON.stringify(
-                allEvents
-            )
-        );
-
-    } catch (error) {
-
-        console.warn(
-            "Could not save events to local storage.",
-            error
-        );
-
-    }
+    updateAlerts();
 
 }
-
-
-function loadEventsFromStorage() {
-
-    try {
-
-        const stored =
-            localStorage.getItem(
-                STORAGE_KEY
-            );
-
-
-        if (!stored) {
-            return null;
-        }
-
-
-        const parsed =
-            JSON.parse(
-                stored
-            );
-
-
-        if (
-            Array.isArray(parsed)
-        ) {
-
-            return parsed;
-
-        }
-
-    } catch (error) {
-
-        console.warn(
-            "Could not read stored events.",
-            error
-        );
-
-    }
-
-
-    return null;
-
-}
-
-
-/* =========================================================
-   WINDOW HELPERS
-========================================================= */
-
-window.applyFilters =
-    applyFilters;
-
-window.resetFilters =
-    resetFilters;
-
-window.goToPreviousPage =
-    goToPreviousPage;
-
-window.goToNextPage =
-    goToNextPage;
-
-window.showSection =
-    showSection;
-
-window.selectEvent =
-    selectEvent;
-
-    
-
-/* =========================================================
-   END OF APP.JS
-========================================================= */
