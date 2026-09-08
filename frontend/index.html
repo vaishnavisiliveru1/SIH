@@ -1,1174 +1,361 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>AI Thermal Intelligence | FIRMS • GIS • Satellite</title>
-
-    <!-- Bootstrap -->
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
-        rel="stylesheet"
-    >
-
-    <!-- Font Awesome -->
-    <link
-        rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
-    >
-
-    <!-- Leaflet -->
-    <link
-        rel="stylesheet"
-        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    >
-
-    <!-- Custom CSS -->
+    <title>AI Thermal Event Intelligence Dashboard</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <!-- Custom Stylesheet -->
     <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
-<!-- =========================================================
-     HEADER
-========================================================= -->
-
-<header class="top-header">
-
-    <div class="header-left">
-
-        <div class="brand-icon">
-            <i class="fa-solid fa-satellite"></i>
+    <!-- RETRACTABLE SIDEBAR NAVIGATION -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="brand-icon"><i class="fa-solid fa-fire-flame-curved"></i></div>
+            <span class="brand-title">THERMAL-AI</span>
+            <button class="toggle-btn" id="sidebar-toggle" aria-label="Toggle Navigation"><i class="fa-solid fa-bars"></i></button>
         </div>
 
-        <div>
+        <nav class="sidebar-menu">
+            <a href="#dashboard" class="nav-item active"><i class="fa-solid fa-chart-line"></i><span>Dashboard</span></a>
+            <a href="#map-section" class="nav-item"><i class="fa-solid fa-earth-americas"></i><span>Geospatial Map</span></a>
+            <a href="#prediction-section" class="nav-item"><i class="fa-solid fa-wand-magic-sparkles"></i><span>AI Predictor</span></a>
+            <a href="#alerts-section" class="nav-item"><i class="fa-solid fa-bell"></i><span>Alerts Center</span></a>
+            <a href="#database-section" class="nav-item"><i class="fa-solid fa-database"></i><span>Database</span></a>
+        </nav>
 
-            <h1>
-                AI-BASED DETECTION & CLASSIFICATION
-            </h1>
-
-            <p>
-                Industrial Fires & Persistent Thermal Sources
-            </p>
-
-            <div class="data-sources">
-
-                <span>
-                    <i class="fa-solid fa-fire"></i>
-                    NASA FIRMS
-                </span>
-
-                <span>
-                    <i class="fa-solid fa-industry"></i>
-                    OSM / GIS
-                </span>
-
-                <span>
-                    <i class="fa-solid fa-earth-americas"></i>
-                    Satellite Data
-                </span>
-
-                <span>
-                    <i class="fa-solid fa-brain"></i>
-                    AI / ML
-                </span>
-
-            </div>
-
+        <div class="sidebar-footer">
+            <button class="btn-login-modal" id="open-auth-btn">
+                <i class="fa-solid fa-right-to-bracket"></i>
+                <span>Login / Register</span>
+            </button>
         </div>
+    </aside>
 
-    </div>
-
-    <div class="system-status">
-
-        <div class="status-indicator">
-            <span class="pulse"></span>
-            SYSTEM ONLINE
-        </div>
-
-        <div class="status-sub">
-            GEOSPATIAL INTELLIGENCE PLATFORM
-        </div>
-
-    </div>
-
-</header>
-
-
-<!-- =========================================================
-     MAIN
-========================================================= -->
-
-<main class="dashboard-container">
-
-
-    <!-- =====================================================
-         STATISTICS
-    ====================================================== -->
-
-    <section class="stats-grid">
-
-        <div class="stat-card total-card">
-
-            <div class="stat-icon">
-                <i class="fa-solid fa-fire"></i>
+    <!-- MAIN DASHBOARD CONTENT -->
+    <main class="main-content" id="main-content">
+        
+        <!-- TOP APP HEADER -->
+        <header class="top-header">
+            <div class="header-left">
+                <h1>AI THERMAL EVENT INTELLIGENCE</h1>
+                <p>NASA FIRMS • OSM • SATELLITE MULTI-MODAL DETECTION</p>
             </div>
-
-            <div>
-                <span class="stat-label">
-                    TOTAL THERMAL SOURCES
-                </span>
-
-                <strong id="total-sources">
-                    0
-                </strong>
+            <div class="system-status">
+                <span class="status-indicator"><i class="live-dot"></i> SYSTEM ONLINE</span>
+                <span class="status-sub" id="database-status">DATABASE READY</span>
             </div>
+        </header>
 
-        </div>
+        <div class="dashboard-container">
 
-
-        <div class="stat-card industrial-card">
-
-            <div class="stat-icon">
-                <i class="fa-solid fa-industry"></i>
-            </div>
-
-            <div>
-                <span class="stat-label">
-                    INDUSTRIAL
-                </span>
-
-                <strong id="industrial-count">
-                    0
-                </strong>
-            </div>
-
-        </div>
-
-
-        <div class="stat-card forest-card">
-
-            <div class="stat-icon">
-                <i class="fa-solid fa-tree"></i>
-            </div>
-
-            <div>
-                <span class="stat-label">
-                    FOREST / NATURAL
-                </span>
-
-                <strong id="forest-count">
-                    0
-                </strong>
-            </div>
-
-        </div>
-
-
-        <div class="stat-card agricultural-card">
-
-            <div class="stat-icon">
-                <i class="fa-solid fa-wheat-awn"></i>
-            </div>
-
-            <div>
-                <span class="stat-label">
-                    AGRICULTURAL
-                </span>
-
-                <strong id="agricultural-count">
-                    0
-                </strong>
-            </div>
-
-        </div>
-
-
-        <div class="stat-card other-card">
-
-            <div class="stat-icon">
-                <i class="fa-solid fa-circle-question"></i>
-            </div>
-
-            <div>
-                <span class="stat-label">
-                    OTHER
-                </span>
-
-                <strong id="other-count">
-                    0
-                </strong>
-            </div>
-
-        </div>
-
-    </section>
-
-
-    <!-- =====================================================
-         AI PREDICTION PANEL
-    ====================================================== -->
-
-    <section class="prediction-panel">
-
-        <div class="panel-header">
-
-            <div>
-
-                <span class="panel-kicker">
-                    AI EVENT ANALYSIS
-                </span>
-
-                <h2>
-                    Predict Thermal Event
-                </h2>
-
-            </div>
-
-            <div class="ai-header-icon">
-                <i class="fa-solid fa-brain"></i>
-            </div>
-
-        </div>
-
-
-        <div class="prediction-content">
-
-
-            <!-- INTRO -->
-
-            <div class="prediction-intro">
-
-                <div class="intro-icon">
-                    <i class="fa-solid fa-satellite-dish"></i>
-                </div>
-
-                <div>
-
-                    <h3>
-                        Thermal Source Classification
-                    </h3>
-
-                    <p>
-                        Enter the available satellite, GIS and temporal
-                        information. The backend will automatically derive
-                        additional model features and classify the event.
-                    </p>
-
-                </div>
-
-            </div>
-
-
-            <!-- INPUT FORM -->
-
-            <form id="prediction-form">
-
-
-                <!-- M1 -->
-
-                <div class="input-section">
-
-                    <div class="input-section-title">
-                        <span>01</span>
-                        NASA FIRMS / SATELLITE FEATURES
+            <!-- METRIC CARDS -->
+            <section class="stats-grid" id="dashboard">
+                <div class="stat-card total-card">
+                    <div class="stat-icon"><i class="fa-solid fa-satellite-dish"></i></div>
+                    <div>
+                        <span class="stat-label">TOTAL THERMAL SOURCES</span>
+                        <strong id="total-sources">0</strong>
                     </div>
+                </div>
+                <div class="stat-card industrial-card">
+                    <div class="stat-icon"><i class="fa-solid fa-factory"></i></div>
+                    <div>
+                        <span class="stat-label">INDUSTRIAL FIRES</span>
+                        <strong id="industrial-count">0</strong>
+                    </div>
+                </div>
+                <div class="stat-card forest-card">
+                    <div class="stat-icon"><i class="fa-solid fa-tree"></i></div>
+                    <div>
+                        <span class="stat-label">FOREST / NATURAL</span>
+                        <strong id="forest-count">0</strong>
+                    </div>
+                </div>
+                <div class="stat-card agricultural-card">
+                    <div class="stat-icon"><i class="fa-solid fa-wheat-awn"></i></div>
+                    <div>
+                        <span class="stat-label">AGRICULTURAL</span>
+                        <strong id="agricultural-count">0</strong>
+                    </div>
+                </div>
+                <div class="stat-card other-card">
+                    <div class="stat-icon"><i class="fa-solid fa-circle-question"></i></div>
+                    <div>
+                        <span class="stat-label">OTHER / UNKNOWN</span>
+                        <strong id="other-count">0</strong>
+                    </div>
+                </div>
+            </section>
 
+            <!-- FILTERS AND CONTROLS PANEL -->
+            <section class="control-panel">
+                <div class="filter-grid">
+                    <div class="filter-group">
+                        <label for="type-filter">Event Type</label>
+                        <select id="type-filter">
+                            <option value="ALL">All Event Types</option>
+                            <option value="Industrial">Industrial</option>
+                            <option value="Forest/Natural">Forest/Natural</option>
+                            <option value="Agricultural">Agricultural</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="confidence-filter">Min Confidence Score (%)</label>
+                        <div class="range-container">
+                            <input type="range" id="confidence-filter" min="0" max="100" value="0">
+                            <output id="confidence-output">0%</output>
+                        </div>
+                    </div>
+                    <div class="filter-group">
+                        <label for="landcover-filter">Landcover Class</label>
+                        <select id="landcover-filter">
+                            <option value="ALL">All Land Covers</option>
+                        </select>
+                    </div>
+                    <div class="filter-group search-group">
+                        <label for="search-input">Search ID</label>
+                        <input type="text" id="search-input" placeholder="Enter Source ID...">
+                    </div>
+                    <div class="filter-group button-group">
+                        <label>&nbsp;</label>
+                        <button id="reset-btn" class="btn-secondary"><i class="fa-solid fa-rotate-right"></i> Reset Filters</button>
+                    </div>
+                </div>
+            </section>
 
+            <!-- GEOSPATIAL MAP PANEL -->
+            <section class="map-panel" id="map-section">
+                <div class="panel-header">
+                    <div>
+                        <span class="panel-kicker">GIS MONITORING</span>
+                        <h2>Spatial Distribution & Active Hotspots</h2>
+                    </div>
+                    <span id="visible-count" class="badge">0 EVENTS</span>
+                </div>
+                <div id="map" class="map-container"></div>
+            </section>
+
+            <!-- AI PREDICTION ENGINE FORM -->
+            <section class="prediction-panel" id="prediction-section">
+                <div class="panel-header">
+                    <div>
+                        <span class="panel-kicker">ML ENGINE</span>
+                        <h2>Run AI Classification & Thermal Persistence Analysis</h2>
+                    </div>
+                </div>
+                <form id="prediction-form" class="prediction-content">
                     <div class="input-grid">
-
-
                         <div class="input-group-custom">
-
-                            <label for="latitude">
-                                <i class="fa-solid fa-location-dot"></i>
-                                Latitude
-                            </label>
-
-                            <input
-                                type="number"
-                                id="latitude"
-                                name="latitude"
-                                step="any"
-                                placeholder="e.g. 16.5062"
-                                required
-                            >
-
+                            <label for="latitude">Latitude</label>
+                            <input type="number" step="any" id="latitude" placeholder="e.g. 21.1458" required>
                         </div>
-
-
                         <div class="input-group-custom">
-
-                            <label for="longitude">
-                                <i class="fa-solid fa-location-dot"></i>
-                                Longitude
-                            </label>
-
-                            <input
-                                type="number"
-                                id="longitude"
-                                name="longitude"
-                                step="any"
-                                placeholder="e.g. 80.6480"
-                                required
-                            >
-
+                            <label for="longitude">Longitude</label>
+                            <input type="number" step="any" id="longitude" placeholder="e.g. 79.0882" required>
                         </div>
-
-
                         <div class="input-group-custom">
-
-                            <label for="mean_frp">
-                                <i class="fa-solid fa-fire-flame-curved"></i>
-                                Mean FRP (MW)
-                            </label>
-
-                            <input
-                                type="number"
-                                id="mean_frp"
-                                name="mean_frp"
-                                step="any"
-                                placeholder="e.g. 35.5"
-                                required
-                            >
-
+                            <label for="mean_frp">Mean FRP (MW)</label>
+                            <input type="number" step="any" id="mean_frp" placeholder="e.g. 15.4" required>
                         </div>
-
-
                         <div class="input-group-custom">
-
-                            <label for="max_frp">
-                                <i class="fa-solid fa-fire"></i>
-                                Maximum FRP (MW)
-                            </label>
-
-                            <input
-                                type="number"
-                                id="max_frp"
-                                name="max_frp"
-                                step="any"
-                                placeholder="e.g. 80.2"
-                                required
-                            >
-
+                            <label for="max_frp">Max FRP (MW)</label>
+                            <input type="number" step="any" id="max_frp" placeholder="e.g. 42.1" required>
                         </div>
-
-
                         <div class="input-group-custom">
-
-                            <label for="mean_brightness">
-                                <i class="fa-solid fa-temperature-high"></i>
-                                Mean Brightness (K)
-                            </label>
-
-                            <input
-                                type="number"
-                                id="mean_brightness"
-                                name="mean_brightness"
-                                step="any"
-                                placeholder="e.g. 330"
-                                required
-                            >
-
+                            <label for="mean_brightness">Mean Brightness (K)</label>
+                            <input type="number" step="any" id="mean_brightness" placeholder="e.g. 312.5" required>
                         </div>
-
-
                         <div class="input-group-custom">
-
-                            <label for="max_brightness">
-                                <i class="fa-solid fa-temperature-arrow-up"></i>
-                                Maximum Brightness (K)
-                            </label>
-
-                            <input
-                                type="number"
-                                id="max_brightness"
-                                name="max_brightness"
-                                step="any"
-                                placeholder="e.g. 360"
-                                required
-                            >
-
+                            <label for="max_brightness">Max Brightness (K)</label>
+                            <input type="number" step="any" id="max_brightness" placeholder="e.g. 345.0" required>
                         </div>
-
-                    </div>
-
-                </div>
-
-
-                <!-- M2 -->
-
-                <div class="input-section">
-
-                    <div class="input-section-title">
-                        <span>02</span>
-                        GIS / INDUSTRIAL CONTEXT
-                    </div>
-
-
-                    <div class="input-grid">
-
-
                         <div class="input-group-custom">
-
-                            <label for="facility_type">
-                                <i class="fa-solid fa-industry"></i>
-                                Nearest Facility Type
-                            </label>
-
-                            <select
-                                id="facility_type"
-                                name="nearest_facility_type"
-                                required
-                            >
-
-                                <option value="">
-                                    Select facility type
-                                </option>
-
-                                <option value="Refinery">
-                                    Refinery
-                                </option>
-
-                                <option value="Power Plant">
-                                    Power Plant
-                                </option>
-
-                                <option value="Mine">
-                                    Mine
-                                </option>
-
-                                <option value="Industrial Area">
-                                    Industrial Area
-                                </option>
-
-                                <option value="Factory">
-                                    Factory
-                                </option>
-
-                                <option value="None">
-                                    None / No nearby facility
-                                </option>
-
+                            <label for="facility_type">Facility Type</label>
+                            <select id="facility_type">
+                                <option value="Refinery">Refinery</option>
+                                <option value="Power Plant">Power Plant</option>
+                                <option value="Mine">Mine</option>
+                                <option value="Industrial Area">Industrial Area</option>
+                                <option value="None">None / Unknown</option>
                             </select>
-
                         </div>
-
-
                         <div class="input-group-custom">
-
-                            <label for="distance_industry">
-                                <i class="fa-solid fa-road"></i>
-                                Distance to Nearest Industry (km)
-                            </label>
-
-                            <input
-                                type="number"
-                                id="distance_industry"
-                                name="distance_to_industry_km"
-                                min="0"
-                                step="any"
-                                placeholder="e.g. 2.5"
-                                required
-                            >
-
+                            <label for="distance_industry">Distance to Industry (km)</label>
+                            <input type="number" step="any" id="distance_industry" placeholder="e.g. 0.4" required>
                         </div>
-
-
                         <div class="input-group-custom">
-
-                            <label for="facilities_1km">
-                                <i class="fa-solid fa-building"></i>
-                                Industrial Facilities ≤ 1 km
-                            </label>
-
-                            <input
-                                type="number"
-                                id="facilities_1km"
-                                name="industrial_facilities_1km"
-                                min="0"
-                                step="1"
-                                placeholder="e.g. 3"
-                                required
-                            >
-
+                            <label for="facilities_1km">Facilities ≤1km</label>
+                            <input type="number" id="facilities_1km" placeholder="e.g. 2" required>
                         </div>
-
-
                         <div class="input-group-custom">
-
-                            <label for="facilities_5km">
-                                <i class="fa-solid fa-city"></i>
-                                Industrial Facilities ≤ 5 km
-                            </label>
-
-                            <input
-                                type="number"
-                                id="facilities_5km"
-                                name="industrial_facilities_5km"
-                                min="0"
-                                step="1"
-                                placeholder="e.g. 8"
-                                required
-                            >
-
+                            <label for="facilities_5km">Facilities ≤5km</label>
+                            <input type="number" id="facilities_5km" placeholder="e.g. 5" required>
                         </div>
-
+                        <div class="input-group-custom">
+                            <label for="total_detections">Total Detections</label>
+                            <input type="number" id="total_detections" placeholder="e.g. 14" required>
+                        </div>
+                        <div class="input-group-custom">
+                            <label for="active_days">Active Days</label>
+                            <input type="number" id="active_days" placeholder="e.g. 10" required>
+                        </div>
+                        <div class="input-group-custom">
+                            <label for="observation_span">Observation Span (Days)</label>
+                            <input type="number" id="observation_span" placeholder="e.g. 12" required>
+                        </div>
                     </div>
-
-                </div>
-
-
-                <!-- M4 -->
-
-                <div class="input-section">
-
-                    <div class="input-section-title">
-                        <span>03</span>
-                        TEMPORAL / RECURRENCE FEATURES
-                    </div>
-
-
-                    <div class="input-grid">
-
-
-                        <div class="input-group-custom">
-
-                            <label for="total_detections">
-                                <i class="fa-solid fa-layer-group"></i>
-                                Total Detections
-                            </label>
-
-                            <input
-                                type="number"
-                                id="total_detections"
-                                name="total_detections"
-                                min="1"
-                                step="1"
-                                placeholder="e.g. 15"
-                                required
-                            >
-
-                        </div>
-
-
-                        <div class="input-group-custom">
-
-                            <label for="active_days">
-                                <i class="fa-solid fa-calendar-check"></i>
-                                Active Days
-                            </label>
-
-                            <input
-                                type="number"
-                                id="active_days"
-                                name="active_days"
-                                min="1"
-                                step="1"
-                                placeholder="e.g. 10"
-                                required
-                            >
-
-                        </div>
-
-
-                        <div class="input-group-custom">
-
-                            <label for="observation_span">
-                                <i class="fa-solid fa-calendar-days"></i>
-                                Observation Span (days)
-                            </label>
-
-                            <input
-                                type="number"
-                                id="observation_span"
-                                name="observation_span_days"
-                                min="1"
-                                step="1"
-                                placeholder="e.g. 20"
-                                required
-                            >
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-
-                <!-- BUTTON -->
-
-                <div class="prediction-action">
-
-                    <button
-                        type="submit"
-                        id="predict-button"
-                        class="predict-button"
-                    >
-
-                        <i class="fa-solid fa-wand-magic-sparkles"></i>
-
-                        PREDICT EVENT
-
+                    <button type="submit" id="predict-button" class="btn-primary">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> PREDICT & SAVE EVENT
                     </button>
+                </form>
 
-                    <span class="input-note">
-
-                        <i class="fa-solid fa-circle-info"></i>
-
-                        Additional model features are derived automatically
-                        by the backend.
-
-                    </span>
-
+                <!-- PREDICTION RESULT DISPLAY BOX -->
+                <div id="prediction-result" class="prediction-result-box hidden">
+                    <div class="result-header">
+                        <i class="fa-solid fa-shield-halved" id="result-icon"></i>
+                        <div>
+                            <span class="panel-kicker">ANALYSIS RESULT</span>
+                            <h3 id="result-type">Industrial Fire</h3>
+                        </div>
+                    </div>
+                    <p id="result-message">Event successfully categorized and added to spatial database.</p>
+                    <div class="score-bars">
+                        <div class="score-item">
+                            <div class="score-info">
+                                <span>Confidence Score</span>
+                                <strong id="result-confidence-value">0%</strong>
+                            </div>
+                            <div class="progress-bar">
+                                <div id="result-confidence-fill" class="progress-fill"></div>
+                            </div>
+                        </div>
+                        <div class="score-item">
+                            <div class="score-info">
+                                <span>Persistence Score</span>
+                                <strong id="result-persistence-value">0%</strong>
+                            </div>
+                            <div class="progress-bar">
+                                <div id="result-persistence-fill" class="progress-fill persistence"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
+            </section>
 
+            <!-- CRITICAL ALERTS CENTER -->
+            <section class="alert-center" id="alerts-section">
+                <div class="panel-header">
+                    <div>
+                        <span class="panel-kicker">EARLY WARNING</span>
+                        <h2><i class="fa-solid fa-bell"></i> Thermal Event Alerts</h2>
+                    </div>
+                </div>
+                <div class="alert-summary">
+                    <div class="alert-summary-item high">Critical: <span id="critical-alert-count">0</span></div>
+                    <div class="alert-summary-item medium">High: <span id="high-alert-count">0</span></div>
+                    <div class="alert-summary-item normal">Monitored: <span id="monitor-alert-count">0</span></div>
+                </div>
+                <div id="alerts-list" class="alert-list"></div>
+            </section>
+
+            <!-- EVENT DETAILS INSPECTION PANEL -->
+            <section class="details-panel" id="details-panel">
+                <div class="panel-header">
+                    <div>
+                        <span class="panel-kicker">INSPECTION</span>
+                        <h2>Selected Event Metrics</h2>
+                    </div>
+                </div>
+                <div id="details-content">
+                    <p style="text-align: center; color: var(--muted); padding: 20px;">
+                        Select an event from the map or registry table to review diagnostic parameters.
+                    </p>
+                </div>
+            </section>
+
+            <!-- GEOSPATIAL EVENT DATABASE TABLE -->
+            <section class="table-panel" id="database-section">
+                <div class="panel-header">
+                    <div>
+                        <span class="panel-kicker">EVENT DATABASE</span>
+                        <h2>Detected Thermal Sources Registry</h2>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Source ID</th>
+                                <th>Type</th>
+                                <th>Confidence</th>
+                                <th>Persistence</th>
+                                <th>Latitude</th>
+                                <th>Longitude</th>
+                                <th>Landcover</th>
+                                <th>Mean FRP</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body"></tbody>
+                    </table>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- AUTHENTICATION MODAL (LOGIN/REGISTER) -->
+    <div class="auth-modal" id="auth-modal">
+        <div class="auth-card">
+            <button class="auth-close" id="close-auth-btn" aria-label="Close Modal"><i class="fa-solid fa-xmark"></i></button>
+            <div class="auth-tabs">
+                <button class="auth-tab active" id="tab-login">Login</button>
+                <button class="auth-tab" id="tab-register">Register</button>
+            </div>
+            
+            <!-- LOGIN FORM -->
+            <form id="login-form" class="auth-form">
+                <div class="input-group-custom">
+                    <label>Email Address</label>
+                    <input type="email" required placeholder="user@agency.gov">
+                </div>
+                <div class="input-group-custom">
+                    <label>Password</label>
+                    <input type="password" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn-primary">Sign In</button>
             </form>
 
-
-            <!-- RESULT -->
-
-            <div
-                id="prediction-result"
-                class="prediction-result hidden"
-            >
-
-                <div class="result-icon" id="result-icon">
-                    <i class="fa-solid fa-fire"></i>
+            <!-- REGISTER FORM -->
+            <form id="register-form" class="auth-form hidden">
+                <div class="input-group-custom">
+                    <label>Full Name</label>
+                    <input type="text" required placeholder="John Doe">
                 </div>
-
-                <div class="result-main">
-
-                    <span class="result-label">
-                        AI CLASSIFICATION RESULT
-                    </span>
-
-                    <h3 id="result-type">
-                        —
-                    </h3>
-
-                    <p id="result-message">
-                        —
-                    </p>
-
+                <div class="input-group-custom">
+                    <label>Email Address</label>
+                    <input type="email" required placeholder="user@agency.gov">
                 </div>
-
-                <div class="result-persistence">
-                    <span>PERSISTENCE</span>
-                    <strong id="result-persistence-value">—</strong>
-                    <small id="result-persistence-category">—</small>
+                <div class="input-group-custom">
+                    <label>Password</label>
+                    <input type="password" required placeholder="••••••••">
                 </div>
-
-                <div class="result-confidence">
-
-                    <span>
-                        CONFIDENCE
-                    </span>
-
-                    <strong id="result-confidence-value">
-                        —
-                    </strong>
-
-                    <div class="result-track">
-
-                        <div
-                            id="result-confidence-fill"
-                            class="result-fill"
-                        ></div>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-
+                <button type="submit" class="btn-primary">Create Account</button>
+            </form>
         </div>
-
-    </section>
-
-
-    <!-- =====================================================
-         MAP + FILTERS
-    ====================================================== -->
-
-    <section class="main-grid">
-
-
-        <!-- MAP -->
-
-        <div class="map-panel">
-
-            <div class="panel-header">
-
-                <div>
-
-                    <span class="panel-kicker">
-                        GEOSPATIAL MONITORING
-                    </span>
-
-                    <h2>
-                        Thermal Hotspot Map
-                    </h2>
-
-                </div>
-
-                <div class="map-status">
-
-                    <span class="live-dot"></span>
-
-                    LIVE DATA VIEW
-
-                </div>
-
-            </div>
-
-
-            <div class="map-wrapper">
-
-                <div id="map"></div>
-
-
-                <!-- LEGEND -->
-
-                <div class="map-legend">
-
-                    <div class="legend-heading">
-                        EVENT CLASSIFICATION
-                    </div>
-
-                    <div class="legend-row">
-
-                        <span class="legend-dot industrial"></span>
-
-                        Industrial
-
-                    </div>
-
-                    <div class="legend-row">
-
-                        <span class="legend-dot forest"></span>
-
-                        Forest / Natural
-
-                    </div>
-
-                    <div class="legend-row">
-
-                        <span class="legend-dot agricultural"></span>
-
-                        Agricultural
-
-                    </div>
-
-                    <div class="legend-row">
-
-                        <span class="legend-dot other"></span>
-
-                        Other
-
-                    </div>
-
-                </div>
-
-            </div>
-
-        </div>
-
-
-        <!-- FILTER PANEL -->
-
-        <aside class="control-panel">
-
-            <div class="panel-header">
-
-                <div>
-
-                    <span class="panel-kicker">
-                        ANALYSIS CONTROLS
-                    </span>
-
-                    <h2>
-                        Filters
-                    </h2>
-
-                </div>
-
-                <i class="fa-solid fa-sliders"></i>
-
-            </div>
-
-
-            <div class="filter-group">
-
-                <label>
-                    <i class="fa-solid fa-layer-group"></i>
-                    EVENT TYPE
-                </label>
-
-                <select id="type-filter">
-
-                    <option value="ALL">
-                        All Event Types
-                    </option>
-
-                    <option value="Industrial">
-                        Industrial
-                    </option>
-
-                    <option value="Forest/Natural">
-                        Forest / Natural
-                    </option>
-
-                    <option value="Agricultural">
-                        Agricultural
-                    </option>
-
-                    <option value="Other">
-                        Other
-                    </option>
-
-                </select>
-
-            </div>
-
-
-            <div class="filter-group">
-
-                <label>
-                    <i class="fa-solid fa-magnifying-glass"></i>
-                    SOURCE ID
-                </label>
-
-                <input
-                    type="text"
-                    id="search-input"
-                    placeholder="SOURCE_0001"
-                >
-
-            </div>
-
-
-            <div class="filter-group">
-
-                <label>
-                    <i class="fa-solid fa-map-location-dot"></i>
-                    LAND COVER
-                </label>
-
-                <select id="landcover-filter">
-
-                    <option value="ALL">
-                        All Land Covers
-                    </option>
-
-                </select>
-
-            </div>
-
-
-            <div class="filter-group">
-
-                <label>
-                    <i class="fa-solid fa-chart-line"></i>
-                    MINIMUM CONFIDENCE
-                </label>
-
-                <select id="confidence-filter">
-
-                    <option value="0">
-                        Any Confidence
-                    </option>
-
-                    <option value="50">
-                        ≥ 50%
-                    </option>
-
-                    <option value="70">
-                        ≥ 70%
-                    </option>
-
-                    <option value="80">
-                        ≥ 80%
-                    </option>
-
-                    <option value="90">
-                        ≥ 90%
-                    </option>
-
-                </select>
-
-            </div>
-
-
-            <button
-                id="reset-btn"
-                class="reset-button"
-            >
-
-                <i class="fa-solid fa-rotate-left"></i>
-
-                RESET FILTERS
-
-            </button>
-
-
-            <div class="system-info">
-
-                <div class="system-info-title">
-
-                    <i class="fa-solid fa-circle-info"></i>
-
-                    DATA PIPELINE
-
-                </div>
-
-
-                <div class="pipeline-step">
-
-                    <span>01</span>
-
-                    NASA FIRMS Thermal Detection
-
-                </div>
-
-
-                <div class="pipeline-step">
-
-                    <span>02</span>
-
-                    GIS / Industrial Context
-
-                </div>
-
-
-                <div class="pipeline-step">
-
-                    <span>03</span>
-
-                    Temporal Analysis
-
-                </div>
-
-
-                <div class="pipeline-step">
-
-                    <span>04</span>
-
-                    AI Event Classification
-
-                </div>
-
-            </div>
-
-        </aside>
-
-    </section>
-
-
-    <!-- =====================================================
-         SELECTED EVENT
-    ====================================================== -->
-
-    <section class="details-panel">
-
-        <div class="panel-header">
-
-            <div>
-
-                <span class="panel-kicker">
-                    SOURCE ANALYSIS
-                </span>
-
-                <h2>
-                    Selected Thermal Source
-                </h2>
-
-            </div>
-
-            <span
-                id="selected-source-label"
-                class="source-label"
-            >
-                NO SOURCE SELECTED
-            </span>
-
-        </div>
-
-
-        <div
-            id="details-content"
-            class="details-empty"
-        >
-
-            <i class="fa-solid fa-crosshairs"></i>
-
-            <h3>
-                Select a thermal source
-            </h3>
-
-            <p>
-                Click a marker on the map or select an event from
-                the table to view AI classification and source-level
-                information.
-            </p>
-
-        </div>
-
-    </section>
-    <!-- =====================================================
-     ALERT CENTER
-====================================================== -->
-
-<section class="alerts-panel">
-
-    <div class="panel-header">
-
-        <div>
-            <span class="panel-kicker">
-                THREAT MONITORING
-            </span>
-
-            <h2>
-                Thermal Event Alerts
-            </h2>
-        </div>
-
-        <div class="alert-summary">
-
-            <div class="alert-summary-item critical">
-                <span>CRITICAL</span>
-                <strong id="critical-alert-count">
-                    0
-                </strong>
-            </div>
-
-            <div class="alert-summary-item high">
-                <span>HIGH</span>
-                <strong id="high-alert-count">
-                    0
-                </strong>
-            </div>
-
-            <div class="alert-summary-item monitor">
-                <span>MONITOR</span>
-                <strong id="monitor-alert-count">
-                    0
-                </strong>
-            </div>
-
-        </div>
-
     </div>
 
-    <div
-        id="alerts-list"
-        class="alerts-list"
-    >
-
-        <div class="no-alerts">
-            No active alerts based on current filters.
-        </div>
-
-    </div>
-
-</section>
-
-
-
-    <!-- =====================================================
-         EVENT LOGS
-    ====================================================== -->
-
-    <section class="table-panel">
-
-        <div class="panel-header">
-
-            <div>
-
-                <span class="panel-kicker">
-                    EVENT DATABASE
-                </span>
-
-                <h2>
-                    Thermal Event Logs
-                </h2>
-
-            </div>
-
-            <div class="database-status-wrap">
-                <div id="visible-count" class="visible-count">0 EVENTS</div>
-                <span id="database-status" class="database-status">DATABASE READY</span>
-            </div>
-
-        </div>
-
-
-        <div class="table-container">
-
-            <table>
-
-                <thead>
-
-                    <tr>
-
-                        <th>SOURCE ID</th>
-                        <th>AI CLASSIFICATION</th>
-                        <th>CONFIDENCE</th>
-                        <th>LATITUDE</th>
-                        <th>LONGITUDE</th>
-                        <th>LAND COVER</th>
-                        <th>MEAN FRP</th>
-                        <th>PERSISTENCE</th>
-                        <th>ACTION</th>
-
-                    </tr>
-
-                </thead>
-
-                <tbody id="table-body"></tbody>
-
-            </table>
-
-        </div>
-
-    </section>
-
-</main>
-
-
-<!-- =========================================================
-     FOOTER
-========================================================= -->
-
-<footer>
-
-    <div>
-        AI-BASED THERMAL EVENT INTELLIGENCE PLATFORM
-    </div>
-
-    <div>
-        NASA FIRMS • OSM • GIS • SATELLITE • MACHINE LEARNING
-    </div>
-
-</footer>
-
-
-<!-- =========================================================
-     JAVASCRIPT LIBRARIES
-========================================================= -->
-
-<script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
-</script>
-
-<script
-    src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js">
-</script>
-
-<script src="app.js"></script>
-
+    <!-- External Libraries -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <!-- Application Logic -->
+    <script src="app.js"></script>
 </body>
 </html>
