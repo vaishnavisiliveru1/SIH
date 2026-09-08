@@ -7,10 +7,8 @@ let filteredEvents = [];
 let map = null;
 let markersLayer = null;
 
-const BACKEND_URL = "http://127.0.0.1:8000/predict";
-const STORAGE_KEY = "sih_thermal_event_database_v3";
-
-const ALERT_RULES = { CRITICAL: 80, HIGH: 60 };
+const STORAGE_KEY = "sih_thermal_event_database_v4";
+const ALERT_RULES = { CRITICAL: 88, HIGH: 75 };
 
 /* DOM INITIALIZATION ROUTINE */
 document.addEventListener("DOMContentLoaded", function () {
@@ -19,7 +17,7 @@ document.addEventListener("DOMContentLoaded", function () {
     initializeMap();
     setupEventListeners();
     setupPredictionForm();
-    loadPredictionData();
+    loadDualCsvData();
 });
 
 /* SIDEBAR RETRACTION AND NAVIGATION */
@@ -33,7 +31,6 @@ function initializeSidebar() {
         });
     }
 
-    // Active Tab Navigation Highlight
     const navItems = document.querySelectorAll(".nav-item");
     navItems.forEach(item => {
         item.addEventListener("click", () => {
@@ -86,69 +83,95 @@ function initializeMap() {
     markersLayer = L.layerGroup().addTo(map);
 }
 
-/* CSV DATA INGESTION PIPELINE */
-function loadPredictionData() {
-    const paths = ["predictions.csv", "./predictions.csv", "data/predictions.csv"];
-    tryNextCSVPath(paths, 0);
-}
-
-function tryNextCSVPath(paths, index) {
-    if (index >= paths.length) { 
-        showDataError(); 
-        processData([]); 
-        return; 
-    }
-    Papa.parse(paths[index], {
-        download: true, 
-        header: true, 
-        skipEmptyLines: true,
-        complete: function (results) {
-            if (results.data && results.data.length > 0) {
-                processData(results.data);
-            } else {
-                tryNextCSVPath(paths, index + 1);
-            }
-        },
-        error: function () { 
-            tryNextCSVPath(paths, index + 1); 
-        }
+/* DUAL CSV DATA INGESTION ENGINE */
+function parseCSVFile(path) {
+    return new Promise((resolve, reject) => {
+        Papa.parse(path, {
+            download: true,
+            header: true,
+            skipEmptyLines: true,
+            complete: (results) => resolve(results.data || []),
+            error: (err) => reject(err)
+        });
     });
 }
 
-/* NORMALIZE MULTI-MODAL METRICS */
-function normalizeEvent(row) {
-    const event = { ...row };
-    event.source_id = getValue(row, ["source_id", "SOURCE_ID", "id"]) || "EVENT_" + Math.random().toString(36).substring(2, 7);
-    event.predicted_event_type = getValue(row, ["predicted_event_type", "event_type", "classification"]) || "Other";
-    
-    // Process Confidence Score Metric (%)
-    event.confidence = parseConfidence(getValue(row, ["confidence_pct", "confidence", "confidence_score"])) ?? getDemoConfidence(event.predicted_event_type, event.source_id);
-    
-    // Spatial & Radiative Power Features
-    event.latitude = parseNumber(getValue(row, ["latitude", "lat"]));
-    event.longitude = parseNumber(getValue(row, ["longitude", "lon"]));
-    event.mean_frp = parseNumber(getValue(row, ["mean_frp", "Mean_FRP"])) || 0;
-    event.landcover = getValue(row, ["landcover_class", "landcover"]) || "Unknown Landcover";
+async function loadDualCsvData() {
+    // Defines paths for both required feature CSV files
+    const eventPaths = ["event_classification_features.csv", "event_classification_features (1) (3).csv", "./data/event_classification_features.csv"];
+    const persPaths = ["source_persistence_features.csv", "source_persistence_features (1).csv", "./data/source_persistence_features.csv"];
 
-    // Dynamic Persistence Score Mapping
-    event.active_days = parseNumber(getValue(row, ["active_days"])) || 0;
-    event.observation_span_days = parseNumber(getValue(row, ["observation_span_days", "observation_span"])) || 1;
-    
-    // Calculate Persistence: (Active Days / Observation Span) * 100
-    if (row.persistence_score !== undefined && row.persistence_score !== null) {
-        event.persistence_score = parseNumber(row.persistence_score);
-    } else {
-        event.persistence_score = Math.min(100, Math.round((event.active_days / Math.max(1, event.observation_span_days)) * 100));
+    let eventData = [], persData = [];
+
+    // Attempt loading Event Classification Features
+    for (let path of eventPaths) {
+        try {
+            const data = await parseCSVFile(path);
+            if (data.length > 0) { eventData = data; break; }
+        } catch (e) {}
     }
 
-    return event;
+    // Attempt loading Source Persistence Features
+    for (let path of persPaths) {
+        try {
+            const data = await parseCSVFile(path);
+            if (data.length > 0) { persData = data; break; }
+        } catch (e) {}
+    }
+
+    if (eventData.length === 0 && persData.length === 0) {
+        showDataError();
+        processData([]);
+        return;
+    }
+
+    // Index persistence records by source_id for fast merging
+    const persMap = new Map();
+    persData.forEach(p => {
+        if (p.source_id) persMap.set(String(p.source_id).trim(), p);
+    });
+
+    // Merge features into unified event models
+    const mergedEvents = eventData.map(event => {
+        const sid = String(event.source_id || "").trim();
+        const persRecord = persMap.get(sid) || {};
+
+        const confidence = parseFloat(event.confidence_pct) || 75.0;
+        
+        // Convert persistence score from 0.0-1.0 decimal to 0-100 percentage
+        let persistenceScore = 0;
+        if (persRecord.persistence_score !== undefined && persRecord.persistence_score !== null) {
+            const rawP = parseFloat(persRecord.persistence_score);
+            persistenceScore = rawP <= 1 ? Math.round(rawP * 100 * 10) / 10 : Math.round(rawP);
+        } else {
+            const activeDays = parseFloat(event.active_days || persRecord.active_days || 0);
+            const obsSpan = Math.max(1, parseFloat(event.observation_span_days || persRecord.observation_span_days || 1));
+            persistenceScore = Math.min(100, Math.round((activeDays / obsSpan) * 100));
+        }
+
+        return {
+            source_id: sid || "EVENT_" + Math.random().toString(36).substring(2, 7),
+            latitude: parseFloat(event.latitude),
+            longitude: parseFloat(event.longitude),
+            predicted_event_type: event.predicted_event_type || event.event_type || "Other",
+            confidence: confidence,
+            persistence_score: persistenceScore,
+            landcover: event.landcover_class || "Unknown",
+            mean_frp: parseFloat(event.mean_frp || persRecord.mean_frp || 0),
+            max_frp: parseFloat(event.max_frp || persRecord.max_frp || 0),
+            mean_brightness: parseFloat(event.mean_brightness || 0),
+            active_days: parseInt(persRecord.active_days || event.active_days || 0),
+            observation_span_days: parseInt(persRecord.observation_span_days || event.observation_span_days || 1)
+        };
+    }).filter(e => !isNaN(e.latitude) && !isNaN(e.longitude));
+
+    processData(mergedEvents);
 }
 
-function processData(data) {
-    const csvEvents = data.map(normalizeEvent).filter(isValidEvent);
+function processData(csvEvents) {
     const savedEvents = loadDatabase();
     
-    // Deduplicate between local browser storage and static CSV dataset
+    // Merge browser local storage with CSV dataset
     const eventMap = new Map();
     csvEvents.forEach(e => eventMap.set(String(e.source_id), e));
     savedEvents.forEach(e => eventMap.set(String(e.source_id), e));
@@ -193,7 +216,7 @@ function renderTable() {
         tr.innerHTML = `
             <td><strong>${escapeHTML(e.source_id)}</strong></td>
             <td><span class="badge" style="background: ${getEventColor(normalizeType(e.predicted_event_type))}22; color: ${getEventColor(normalizeType(e.predicted_event_type))}">${normalizeType(e.predicted_event_type)}</span></td>
-            <td>${e.confidence.toFixed(1)}%</td>
+            <td><strong>${e.confidence.toFixed(1)}%</strong></td>
             <td><strong style="color:var(--cyan)">${e.persistence_score}%</strong></td>
             <td>${e.latitude ? e.latitude.toFixed(4) : "—"}</td>
             <td>${e.longitude ? e.longitude.toFixed(4) : "—"}</td>
@@ -251,8 +274,8 @@ function updateAlerts() {
         item.className = "alert-card";
         item.innerHTML = `
             <div>
-                <strong>${e.source_id} - High Thermal Intensity</strong>
-                <p style="font-size:11px; color:var(--muted)">Type: ${e.predicted_event_type} | Confidence: ${e.confidence}%</p>
+                <strong>${e.source_id} - High Intensity Event</strong>
+                <p style="font-size:11px; color:var(--muted)">Type: ${e.predicted_event_type} | Confidence: ${e.confidence.toFixed(1)}% | Persistence: ${e.persistence_score}%</p>
             </div>
             <button class="btn-secondary" onclick="showEventDetails('${e.source_id}')">Inspect</button>
         `;
@@ -297,27 +320,25 @@ function setupPredictionForm() {
             longitude: Number(document.getElementById("longitude").value),
             mean_frp: Number(document.getElementById("mean_frp").value),
             predicted_event_type: document.getElementById("facility_type").value !== "None" ? "Industrial" : "Agricultural",
-            confidence_pct: Math.floor(Math.random() * (98 - 68 + 1)) + 68,
+            confidence: Math.floor(Math.random() * (98 - 72 + 1)) + 72,
             active_days: activeDays,
             observation_span_days: obsSpan,
             persistence_score: calculatedPersistence,
-            landcover_class: "Monitored Zone"
+            landcover: "Monitored Zone"
         };
 
-        const eventRecord = normalizeEvent(payload);
-        saveEventToDatabase(eventRecord);
-        allEvents.unshift(eventRecord);
+        saveEventToDatabase(payload);
+        allEvents.unshift(payload);
         applyFilters();
 
-        // Reveal prediction box & update sliders
         const resultBox = document.getElementById("prediction-result");
         resultBox.classList.remove("hidden");
-        setText("result-type", eventRecord.predicted_event_type);
-        setText("result-confidence-value", `${eventRecord.confidence.toFixed(1)}%`);
-        setText("result-persistence-value", `${eventRecord.persistence_score}%`);
+        setText("result-type", payload.predicted_event_type);
+        setText("result-confidence-value", `${payload.confidence.toFixed(1)}%`);
+        setText("result-persistence-value", `${payload.persistence_score}%`);
 
-        document.getElementById("result-confidence-fill").style.width = `${eventRecord.confidence}%`;
-        document.getElementById("result-persistence-fill").style.width = `${eventRecord.persistence_score}%`;
+        document.getElementById("result-confidence-fill").style.width = `${payload.confidence}%`;
+        document.getElementById("result-persistence-fill").style.width = `${payload.persistence_score}%`;
         
         resultBox.scrollIntoView({ behavior: 'smooth' });
     });
@@ -419,32 +440,6 @@ function getEventColor(type) {
     if (type === "Forest/Natural") return "#22c55e";
     if (type === "Agricultural") return "#f59e0b";
     return "#94a3b8";
-}
-
-function parseConfidence(v) {
-    const n = parseFloat(v);
-    if (isNaN(n)) return null;
-    return n <= 1 ? n * 100 : n;
-}
-
-function parseNumber(v) {
-    const n = parseFloat(v);
-    return isNaN(n) ? null : n;
-}
-
-function getValue(row, keys) {
-    for (let k of keys) {
-        if (row[k] !== undefined && row[k] !== null && row[k] !== "") return row[k];
-    }
-    return null;
-}
-
-function getDemoConfidence(type, id) {
-    return 65 + (Math.abs(String(id).length * 17) % 32);
-}
-
-function isValidEvent(e) {
-    return e.latitude !== null && e.longitude !== null;
 }
 
 function setText(id, txt) {

@@ -90,9 +90,7 @@ body {
     border-radius: 4px;
 }
 
-.toggle-btn:hover {
-    color: var(--text);
-}
+.toggle-btn:hover { color: var(--text); }
 
 .sidebar-menu {
     display: flex;
@@ -184,9 +182,7 @@ body {
     margin-top: 2px;
 }
 
-.system-status {
-    text-align: right;
-}
+.system-status { text-align: right; }
 
 .status-indicator {
     display: inline-flex;
@@ -219,7 +215,7 @@ body {
     gap: 25px;
 }
 
-/* CARDS & METRICS */
+/* METRIC CARDS */
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -338,9 +334,7 @@ input, select {
     transition: border-color 0.2s;
 }
 
-input:focus, select:focus {
-    border-color: var(--cyan);
-}
+input:focus, select:focus { border-color: var(--cyan); }
 
 .range-container {
     display: flex;
@@ -348,9 +342,7 @@ input:focus, select:focus {
     gap: 10px;
 }
 
-.range-container input {
-    flex: 1;
-}
+.range-container input { flex: 1; }
 
 .range-container output {
     font-size: 12px;
@@ -385,7 +377,7 @@ input:focus, select:focus {
 
 .btn-secondary:hover { background: var(--panel-light); }
 
-/* PREDICTION RESULT DISPLAY BOX */
+/* PREDICTION DISPLAY BOX */
 .prediction-result-box {
     margin-top: 20px;
     background: var(--panel-light);
@@ -435,11 +427,9 @@ input:focus, select:focus {
     transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.progress-fill.persistence {
-    background: var(--agricultural);
-}
+.progress-fill.persistence { background: var(--agricultural); }
 
-/* ALERTS CENTER STYLES */
+/* ALERTS CENTER */
 .alert-summary {
     display: flex;
     gap: 15px;
@@ -567,6 +557,4 @@ th {
     gap: 15px;
 }
 
-.hidden {
-    display: none !important;
-}
+.hidden { display: none !important; }

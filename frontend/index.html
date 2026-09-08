@@ -121,7 +121,7 @@
                     </div>
                     <div class="filter-group search-group">
                         <label for="search-input">Search ID</label>
-                        <input type="text" id="search-input" placeholder="Enter Source ID...">
+                        <input type="text" id="search-input" placeholder="e.g. SOURCE_0001">
                     </div>
                     <div class="filter-group button-group">
                         <label>&nbsp;</label>
@@ -154,11 +154,11 @@
                     <div class="input-grid">
                         <div class="input-group-custom">
                             <label for="latitude">Latitude</label>
-                            <input type="number" step="any" id="latitude" placeholder="e.g. 21.1458" required>
+                            <input type="number" step="any" id="latitude" placeholder="e.g. 20.7957" required>
                         </div>
                         <div class="input-group-custom">
                             <label for="longitude">Longitude</label>
-                            <input type="number" step="any" id="longitude" placeholder="e.g. 79.0882" required>
+                            <input type="number" step="any" id="longitude" placeholder="e.g. 85.2547" required>
                         </div>
                         <div class="input-group-custom">
                             <label for="mean_frp">Mean FRP (MW)</label>
@@ -170,11 +170,11 @@
                         </div>
                         <div class="input-group-custom">
                             <label for="mean_brightness">Mean Brightness (K)</label>
-                            <input type="number" step="any" id="mean_brightness" placeholder="e.g. 312.5" required>
+                            <input type="number" step="any" id="mean_brightness" placeholder="e.g. 325.2" required>
                         </div>
                         <div class="input-group-custom">
                             <label for="max_brightness">Max Brightness (K)</label>
-                            <input type="number" step="any" id="max_brightness" placeholder="e.g. 345.0" required>
+                            <input type="number" step="any" id="max_brightness" placeholder="e.g. 348.2" required>
                         </div>
                         <div class="input-group-custom">
                             <label for="facility_type">Facility Type</label>
@@ -311,7 +311,7 @@
         </div>
     </main>
 
-    <!-- AUTHENTICATION MODAL (LOGIN/REGISTER) -->
+    <!-- AUTHENTICATION MODAL -->
     <div class="auth-modal" id="auth-modal">
         <div class="auth-card">
             <button class="auth-close" id="close-auth-btn" aria-label="Close Modal"><i class="fa-solid fa-xmark"></i></button>
@@ -320,7 +320,6 @@
                 <button class="auth-tab" id="tab-register">Register</button>
             </div>
             
-            <!-- LOGIN FORM -->
             <form id="login-form" class="auth-form">
                 <div class="input-group-custom">
                     <label>Email Address</label>
@@ -333,7 +332,6 @@
                 <button type="submit" class="btn-primary">Sign In</button>
             </form>
 
-            <!-- REGISTER FORM -->
             <form id="register-form" class="auth-form hidden">
                 <div class="input-group-custom">
                     <label>Full Name</label>
