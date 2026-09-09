@@ -448,11 +448,11 @@ function renderTable() {
             <td><span class="badge" style="background:rgba(255,255,255,0.08); color:var(--text);">${escapeHTML(e.state || 'National')}</span></td>
             <td><span class="badge" style="background: ${getEventColor(normalizeType(e.predicted_event_type))}22; color: ${getEventColor(normalizeType(e.predicted_event_type))}">${normalizeType(e.predicted_event_type)}</span></td>
             <td><strong>${e.confidence.toFixed(1)}%</strong></td>
-            <td><strong style="color:var(--cyan)">${e.persistence_score}%</strong></td>
+            <td><strong style="color:var(--cyan, #00f2fe)">${e.persistence_score}%</strong></td>
             <td>${e.latitude ? e.latitude.toFixed(4) : "—"}</td>
             <td>${e.longitude ? e.longitude.toFixed(4) : "—"}</td>
             <td>${e.mean_frp ? e.mean_frp.toFixed(1) : "—"}</td>
-            <td><button class="btn-secondary" onclick="window.showEventDetails('${e.source_id}')">View</button></td>
+            <td><button class="btn-secondary" onclick="window.showEventDetails('${escapeHTML(e.source_id)}')">View</button></td>
         `;
         tbody.appendChild(tr);
     });
@@ -474,7 +474,7 @@ function renderMarkers() {
         
         marker.bindPopup(`
             <div style="font-family: system-ui;">
-                <b style="color:#000">${e.source_id}</b> (${e.state})<br>
+                <b style="color:#000">${escapeHTML(e.source_id)}</b> (${escapeHTML(e.state)})<br>
                 Type: <b>${normalizeType(e.predicted_event_type)}</b><br>
                 Confidence: <b>${e.confidence.toFixed(1)}%</b><br>
                 Persistence Score: <b>${e.persistence_score}%</b>
@@ -504,10 +504,10 @@ function updateAlerts() {
         item.className = "alert-card";
         item.innerHTML = `
             <div>
-                <strong>${e.source_id} [${e.state}] - High Intensity Event</strong>
-                <p style="font-size:12px; color:var(--muted)">Type: ${e.predicted_event_type} | Confidence: ${e.confidence.toFixed(1)}% | Persistence: ${e.persistence_score}%</p>
+                <strong>${escapeHTML(e.source_id)} [${escapeHTML(e.state)}] - High Intensity Event</strong>
+                <p style="font-size:12px; color:var(--muted)">Type: ${escapeHTML(e.predicted_event_type)} | Confidence: ${e.confidence.toFixed(1)}% | Persistence: ${e.persistence_score}%</p>
             </div>
-            <button class="btn-secondary" onclick="window.showEventDetails('${e.source_id}')">Inspect</button>
+            <button class="btn-secondary" onclick="window.showEventDetails('${escapeHTML(e.source_id)}')">Inspect</button>
         `;
         list.appendChild(item);
     });
@@ -534,11 +534,11 @@ window.showEventDetails = function(sourceId) {
 
     container.innerHTML = `
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-            <div><span style="color:var(--muted); font-size:12px;">SOURCE ID</span><br><strong>${event.source_id}</strong></div>
-            <div><span style="color:var(--muted); font-size:12px;">STATE JURISDICTION</span><br><strong>${event.state}</strong></div>
-            <div><span style="color:var(--muted); font-size:12px;">EVENT CLASSIFICATION</span><br><strong>${event.predicted_event_type}</strong></div>
-            <div><span style="color:var(--muted); font-size:12px;">CONFIDENCE SCORE</span><br><strong style="color:var(--cyan)">${event.confidence.toFixed(1)}%</strong></div>
-            <div><span style="color:var(--muted); font-size:12px;">PERSISTENCE SCORE</span><br><strong style="color:var(--agricultural)">${event.persistence_score}%</strong></div>
+            <div><span style="color:var(--muted); font-size:12px;">SOURCE ID</span><br><strong>${escapeHTML(event.source_id)}</strong></div>
+            <div><span style="color:var(--muted); font-size:12px;">STATE JURISDICTION</span><br><strong>${escapeHTML(event.state)}</strong></div>
+            <div><span style="color:var(--muted); font-size:12px;">EVENT CLASSIFICATION</span><br><strong>${escapeHTML(event.predicted_event_type)}</strong></div>
+            <div><span style="color:var(--muted); font-size:12px;">CONFIDENCE SCORE</span><br><strong style="color:var(--cyan, #00f2fe)">${event.confidence.toFixed(1)}%</strong></div>
+            <div><span style="color:var(--muted); font-size:12px;">PERSISTENCE SCORE</span><br><strong style="color:var(--agricultural, #2ecc71)">${event.persistence_score}%</strong></div>
             <div><span style="color:var(--muted); font-size:12px;">LATITUDE / LONGITUDE</span><br><strong>${event.latitude}, ${event.longitude}</strong></div>
         </div>
     `;
@@ -554,18 +554,18 @@ function setupPredictionForm() {
     form.addEventListener("submit", function (e) {
         e.preventDefault();
 
-        const activeDays = Number(document.getElementById("active_days").value) || 0;
-        const obsSpan = Number(document.getElementById("observation_span").value) || 1;
+        const activeDays = Number(document.getElementById("active_days")?.value) || 0;
+        const obsSpan = Number(document.getElementById("observation_span")?.value) || 1;
         const calculatedPersistence = Math.min(100, Math.round((activeDays / obsSpan) * 100));
         const selectedState = document.getElementById("state-filter")?.value !== "ALL" ? document.getElementById("state-filter").value : "Odisha";
 
         const payload = {
             source_id: "PRED_" + Date.now().toString().substring(8),
             state: selectedState,
-            latitude: Number(document.getElementById("latitude").value),
-            longitude: Number(document.getElementById("longitude").value),
-            mean_frp: Number(document.getElementById("mean_frp").value),
-            predicted_event_type: document.getElementById("facility_type").value !== "None" ? "Industrial" : "Agricultural",
+            latitude: Number(document.getElementById("latitude")?.value || 0),
+            longitude: Number(document.getElementById("longitude")?.value || 0),
+            mean_frp: Number(document.getElementById("mean_frp")?.value || 0),
+            predicted_event_type: document.getElementById("facility_type")?.value !== "None" ? "Industrial" : "Agricultural",
             confidence: Math.floor(Math.random() * (98 - 72 + 1)) + 72,
             persistence_score: calculatedPersistence,
             landcover: "Monitored Zone"
@@ -576,16 +576,21 @@ function setupPredictionForm() {
         applyFilters();
 
         const resultBox = document.getElementById("prediction-result");
-        resultBox.classList.remove("hidden");
-        setText("result-type", payload.predicted_event_type);
-        setText("result-confidence-value", `${payload.confidence.toFixed(1)}%`);
-        setText("result-persistence-value", `${payload.persistence_score}%`);
+        if (resultBox) {
+            resultBox.classList.remove("hidden");
+            setText("result-type", payload.predicted_event_type);
+            setText("result-confidence-value", `${payload.confidence.toFixed(1)}%`);
+            setText("result-persistence-value", `${payload.persistence_score}%`);
 
-        document.getElementById("result-confidence-fill").style.width = `${payload.confidence}%`;
-        document.getElementById("result-persistence-fill").style.width = `${payload.persistence_score}%`;
+            const confFill = document.getElementById("result-confidence-fill");
+            const persFill = document.getElementById("result-persistence-fill");
+            if (confFill) confFill.style.width = `${payload.confidence}%`;
+            if (persFill) persFill.style.width = `${payload.persistence_score}%`;
+            
+            resultBox.scrollIntoView({ behavior: 'smooth' });
+        }
         
         showToast(`New prediction recorded: ${payload.source_id}`, "success");
-        resultBox.scrollIntoView({ behavior: 'smooth' });
     });
 }
 
@@ -653,50 +658,79 @@ function applyFilters() {
     updateAlerts();
 }
 
-/* LOCAL STORAGE & TOAST MESSAGES */
+/* LOCAL STORAGE & HELPER FUNCTIONS */
 function loadDatabase() {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } 
-    catch { return []; }
+    try { 
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); 
+    } catch { 
+        return []; 
+    }
 }
 
-function saveEventToDatabase(event) {
+function saveEventToDatabase(eventPayload) {
     const db = loadDatabase();
-    db.push(event);
+    db.unshift(eventPayload);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
 }
 
-function showToast(message, type = "info") {
-    const container = document.getElementById("toast-container");
-    if (!container) return;
-
-    const toast = document.createElement("div");
-    toast.className = `toast ${type}`;
-    toast.textContent = message;
-
-    container.appendChild(toast);
-    setTimeout(() => toast.remove(), 4000);
-}
-
-function normalizeType(type) {
-    const val = String(type).toLowerCase();
-    if (val.includes("industrial")) return "Industrial";
-    if (val.includes("forest") || val.includes("natural")) return "Forest/Natural";
-    if (val.includes("agricultural")) return "Agricultural";
+function normalizeType(typeStr) {
+    if (!typeStr) return "Other";
+    const lower = String(typeStr).toLowerCase();
+    if (lower.includes("industrial") || lower.includes("facility")) return "Industrial";
+    if (lower.includes("forest") || lower.includes("tree") || lower.includes("natural")) return "Forest/Natural";
+    if (lower.includes("agri") || lower.includes("crop")) return "Agricultural";
     return "Other";
 }
 
 function getEventColor(type) {
-    if (type === "Industrial") return "#ff4d5a";
-    if (type === "Forest/Natural") return "#22c55e";
-    if (type === "Agricultural") return "#f59e0b";
-    return "#94a3b8";
+    switch (type) {
+        case "Industrial": return "#e74c3c";
+        case "Forest/Natural": return "#2ecc71";
+        case "Agricultural": return "#f39c12";
+        default: return "#9b59b6";
+    }
 }
 
-function setText(id, txt) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = txt;
+function setText(elementId, val) {
+    const el = document.getElementById(elementId);
+    if (el) el.textContent = val;
 }
 
 function escapeHTML(str) {
-    return String(str).replace(/[&<>"']/g, '');
+    return String(str ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function showToast(message, type = "info") {
+    let container = document.getElementById("toast-container");
+    if (!container) {
+        container = document.createElement("div");
+        container.id = "toast-container";
+        container.style.cssText = "position:fixed; bottom:20px; right:20px; z-index:9999; display:flex; flex-direction:column; gap:10px;";
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement("div");
+    toast.className = `toast toast-${type}`;
+    toast.style.cssText = `
+        padding: 12px 20px;
+        border-radius: 6px;
+        color: #fff;
+        font-family: system-ui, sans-serif;
+        font-size: 14px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        background: ${type === 'alert' ? '#e74c3c' : type === 'success' ? '#2ecc71' : '#3498db'};
+        transition: opacity 0.3s ease;
+    `;
+    toast.textContent = message;
+
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = "0";
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
 }
