@@ -11,6 +11,13 @@ let markersLayer = null;
 const STORAGE_KEY = "sih_thermal_event_database_v6";
 const ALERT_RULES = { CRITICAL: 88, HIGH: 75 };
 
+// Sample fire images for hotspot popups
+const sampleFireImages = [
+    "https://images.unsplash.com/photo-1542224566-6e85f2e6772f?auto=format&fit=crop&w=600&q=80",
+    "https://images.unsplash.com/photo-1508873696983-2df515122519?auto=format&fit=crop&w=600&q=80",
+    "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?auto=format&fit=crop&w=600&q=80"
+];
+
 /* DICTIONARY FOR MULTILINGUAL UI TRANSLATION */
 const uiTranslations = {
     "en-US": {
@@ -91,10 +98,13 @@ function initializeMultilingualAndVoice() {
     const micBtn = document.getElementById("mic-btn");
     const transcriptText = document.getElementById("transcript-text");
 
+    // Dynamic UI Translation Change
     langSelect?.addEventListener("change", (e) => {
-        applyLanguageTranslations(e.target.value);
+        const lang = e.target.value;
+        applyLanguageTranslations(lang);
     });
 
+    // Voice Command Speech Recognition
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
         const recognition = new SpeechRecognition();
@@ -102,20 +112,19 @@ function initializeMultilingualAndVoice() {
         recognition.interimResults = false;
 
         micBtn?.addEventListener("click", () => {
-            const currentLang = langSelect ? langSelect.value : "en-US";
+            const currentLang = langSelect.value;
             recognition.lang = currentLang;
             recognition.start();
             
             micBtn.classList.add("listening");
-            const micLabel = document.getElementById("mic-label");
-            if (micLabel) micLabel.textContent = uiTranslations[currentLang]?.listening || "Listening...";
+            document.getElementById("mic-label").textContent = uiTranslations[currentLang]?.listening || "Listening...";
         });
 
         recognition.onresult = (event) => {
             micBtn.classList.remove("listening");
             const command = event.results[0][0].transcript.toLowerCase();
-            const currentLang = langSelect ? langSelect.value : "en-US";
-            if (transcriptText) transcriptText.textContent = `"${command}"`;
+            const currentLang = langSelect.value;
+            transcriptText.textContent = `"${command}"`;
 
             processVoiceCommand(command, currentLang);
         };
@@ -123,10 +132,7 @@ function initializeMultilingualAndVoice() {
         recognition.onerror = () => micBtn.classList.remove("listening");
         recognition.onend = () => {
             micBtn.classList.remove("listening");
-            const micLabel = document.getElementById("mic-label");
-            if (micLabel && langSelect) {
-                micLabel.textContent = uiTranslations[langSelect.value]?.micLabel || "Voice Control";
-            }
+            document.getElementById("mic-label").textContent = uiTranslations[langSelect.value]?.micLabel || "Voice Control";
         };
     }
 }
@@ -164,7 +170,7 @@ function applyLanguageTranslations(lang) {
     setText("transcript-text", t.voicePrompt);
     setText("mic-label", t.micLabel);
 
-    renderTable();
+    renderTable(); // Refresh table text
 }
 
 /* PROCESS VOICE COMMAND INTENTS */
@@ -172,27 +178,29 @@ function processVoiceCommand(command, lang) {
     const stateFilter = document.getElementById("state-filter");
     const typeFilter = document.getElementById("type-filter");
 
+    // State Command Handling
     if (command.includes("odisha") || command.includes("ओडिशा") || command.includes("ஒடிசா")) {
-        if (stateFilter) stateFilter.value = "Odisha";
+        stateFilter.value = "Odisha";
         speakResponse("Filtering dashboard for Odisha", lang);
     } else if (command.includes("jharkhand") || command.includes("झारखंड") || command.includes("ஜார்க்கண்ட்")) {
-        if (stateFilter) stateFilter.value = "Jharkhand";
+        stateFilter.value = "Jharkhand";
         speakResponse("Filtering dashboard for Jharkhand", lang);
     } else if (command.includes("chhattisgarh") || command.includes("छत्तीसगढ़") || command.includes("சத்தீஸ்கர்")) {
-        if (stateFilter) stateFilter.value = "Chhattisgarh";
+        stateFilter.value = "Chhattisgarh";
         speakResponse("Filtering dashboard for Chhattisgarh", lang);
     } else if (command.includes("maharashtra") || command.includes("महाराष्ट्र") || command.includes("மகாராஷ்டிரா")) {
-        if (stateFilter) stateFilter.value = "Maharashtra";
+        stateFilter.value = "Maharashtra";
         speakResponse("Filtering dashboard for Maharashtra", lang);
     } else if (command.includes("karnataka") || command.includes("कर्नाटक") || command.includes("கர்நாடகா")) {
-        if (stateFilter) stateFilter.value = "Karnataka";
+        stateFilter.value = "Karnataka";
         speakResponse("Filtering dashboard for Karnataka", lang);
     }
 
+    // Category Command Handling
     if (command.includes("industrial") || command.includes("इंडस्ट्रियल") || command.includes("தொழில்துறை")) {
-        if (typeFilter) typeFilter.value = "Industrial";
+        typeFilter.value = "Industrial";
     } else if (command.includes("forest") || command.includes("जंगल") || command.includes("காடு")) {
-        if (typeFilter) typeFilter.value = "Forest/Natural";
+        typeFilter.value = "Forest/Natural";
     } else if (command.includes("reset") || command.includes("रीसेट") || command.includes("மீட்டமை")) {
         document.getElementById("reset-btn")?.click();
         speakResponse("Filters reset", lang);
@@ -240,8 +248,7 @@ function initializeSidebarAndNavigation() {
     const viewSections = document.querySelectorAll(".view-section");
 
     navItems.forEach(item => {
-        item.addEventListener("click", (e) => {
-            e.preventDefault();
+        item.addEventListener("click", () => {
             navItems.forEach(i => i.classList.remove("active"));
             item.classList.add("active");
 
@@ -315,7 +322,7 @@ function initializeMap() {
     markersLayer = L.layerGroup().addTo(map);
 }
 
-/* DATA INGESTION ENGINE */
+/* DATA INGESTION ENGINE WITH STATE MAPPING */
 function parseCSVFile(path) {
     return new Promise((resolve, reject) => {
         Papa.parse(path, {
@@ -337,26 +344,15 @@ async function loadDualCsvData() {
     for (let path of eventPaths) {
         try {
             const data = await parseCSVFile(path);
-            if (data && data.length > 0) { eventData = data; break; }
+            if (data.length > 0) { eventData = data; break; }
         } catch (e) {}
     }
 
     for (let path of persPaths) {
         try {
             const data = await parseCSVFile(path);
-            if (data && data.length > 0) { persData = data; break; }
+            if (data.length > 0) { persData = data; break; }
         } catch (e) {}
-    }
-
-    // Fallback Mock Data generation if external files cannot be parsed
-    if (eventData.length === 0) {
-        eventData = [
-            { source_id: "SOURCE_101", state: "Odisha", latitude: "20.7957", longitude: "85.2547", predicted_event_type: "Industrial", confidence_pct: "91.5", landcover_class: "Built-up", mean_frp: "34.2" },
-            { source_id: "SOURCE_102", state: "Jharkhand", latitude: "23.6102", longitude: "85.2799", predicted_event_type: "Forest/Natural", confidence_pct: "84.0", landcover_class: "Tree cover", mean_frp: "18.6" },
-            { source_id: "SOURCE_103", state: "Chhattisgarh", latitude: "21.2787", longitude: "81.8661", predicted_event_type: "Agricultural", confidence_pct: "78.2", landcover_class: "Cropland", mean_frp: "12.4" },
-            { source_id: "SOURCE_104", state: "Maharashtra", latitude: "19.7515", longitude: "75.7139", predicted_event_type: "Industrial", confidence_pct: "94.1", landcover_class: "Built-up", mean_frp: "52.1" },
-            { source_id: "SOURCE_105", state: "Karnataka", latitude: "15.3173", longitude: "75.7139", predicted_event_type: "Other", confidence_pct: "62.4", landcover_class: "Grassland", mean_frp: "8.9" }
-        ];
     }
 
     const persMap = new Map();
@@ -376,14 +372,14 @@ async function loadDualCsvData() {
             const rawP = parseFloat(persRecord.persistence_score);
             persistenceScore = rawP <= 1 ? Math.round(rawP * 100 * 10) / 10 : Math.round(rawP);
         } else {
-            const activeDays = parseFloat(event.active_days || persRecord.active_days || 5);
-            const obsSpan = Math.max(1, parseFloat(event.observation_span_days || persRecord.observation_span_days || 10));
+            const activeDays = parseFloat(event.active_days || persRecord.active_days || 0);
+            const obsSpan = Math.max(1, parseFloat(event.observation_span_days || persRecord.observation_span_days || 1));
             persistenceScore = Math.min(100, Math.round((activeDays / obsSpan) * 100));
         }
 
         return {
             source_id: sid || "EVENT_" + Math.random().toString(36).substring(2, 7),
-            state: event.state || statesList[idx % statesList.length],
+            state: event.state || statesList[idx % statesList.length], // Assign state dynamically
             latitude: parseFloat(event.latitude),
             longitude: parseFloat(event.longitude),
             predicted_event_type: event.predicted_event_type || event.event_type || "Other",
@@ -392,7 +388,8 @@ async function loadDualCsvData() {
             landcover: event.landcover_class || "Unknown",
             mean_frp: parseFloat(event.mean_frp || persRecord.mean_frp || 0),
             max_frp: parseFloat(event.max_frp || persRecord.max_frp || 0),
-            mean_brightness: parseFloat(event.mean_brightness || 0)
+            mean_brightness: parseFloat(event.mean_brightness || 0),
+            imageUrl: sampleFireImages[idx % sampleFireImages.length]
         };
     }).filter(e => !isNaN(e.latitude) && !isNaN(e.longitude));
 
@@ -445,14 +442,14 @@ function renderTable() {
         const tr = document.createElement("tr");
         tr.innerHTML = `
             <td><strong>${escapeHTML(e.source_id)}</strong></td>
-            <td><span class="badge" style="background:rgba(255,255,255,0.08); color:var(--text);">${escapeHTML(e.state || 'National')}</span></td>
+            <td><span class="badge">${escapeHTML(e.state || 'National')}</span></td>
             <td><span class="badge" style="background: ${getEventColor(normalizeType(e.predicted_event_type))}22; color: ${getEventColor(normalizeType(e.predicted_event_type))}">${normalizeType(e.predicted_event_type)}</span></td>
             <td><strong>${e.confidence.toFixed(1)}%</strong></td>
-            <td><strong style="color:var(--cyan, #00f2fe)">${e.persistence_score}%</strong></td>
+            <td><strong style="color:var(--cyan)">${e.persistence_score}%</strong></td>
             <td>${e.latitude ? e.latitude.toFixed(4) : "—"}</td>
             <td>${e.longitude ? e.longitude.toFixed(4) : "—"}</td>
             <td>${e.mean_frp ? e.mean_frp.toFixed(1) : "—"}</td>
-            <td><button class="btn-secondary" onclick="window.showEventDetails('${escapeHTML(e.source_id)}')">View</button></td>
+            <td><button class="btn-secondary" onclick="showEventDetails('${e.source_id}')">View</button></td>
         `;
         tbody.appendChild(tr);
     });
@@ -465,23 +462,32 @@ function renderMarkers() {
     filteredEvents.forEach(e => {
         if (!e.latitude || !e.longitude) return;
         const marker = L.circleMarker([e.latitude, e.longitude], {
-            radius: 6,
+            radius: 8,
             fillColor: getEventColor(normalizeType(e.predicted_event_type)),
             color: "#ffffff", 
-            weight: 1, 
+            weight: 1.5, 
             fillOpacity: 0.85
         });
         
-        marker.bindPopup(`
-            <div style="font-family: system-ui;">
-                <b style="color:#000">${escapeHTML(e.source_id)}</b> (${escapeHTML(e.state)})<br>
-                Type: <b>${normalizeType(e.predicted_event_type)}</b><br>
-                Confidence: <b>${e.confidence.toFixed(1)}%</b><br>
-                Persistence Score: <b>${e.persistence_score}%</b>
+        const popupContent = `
+            <div class="popup-container">
+                <h4>🔥 ${escapeHTML(e.source_id)}</h4>
+                <p><strong>State:</strong> ${escapeHTML(e.state || 'N/A')}</p>
+                <p><strong>Type:</strong> ${normalizeType(e.predicted_event_type)}</p>
+                <p><strong>Confidence:</strong> ${e.confidence.toFixed(1)}%</p>
+                <p><strong>Persistence:</strong> ${e.persistence_score}%</p>
+                <img 
+                  src="${e.imageUrl || sampleFireImages[0]}" 
+                  alt="Fire Image at ${e.source_id}" 
+                  class="popup-fire-img"
+                  onerror="this.onerror=null; this.src='https://via.placeholder.com/200x120?text=Fire+Image+Unavailable';"
+                />
             </div>
-        `);
+        `;
+
+        marker.bindPopup(popupContent);
         
-        marker.on("click", () => window.showEventDetails(e.source_id));
+        marker.on("click", () => showEventDetails(e.source_id));
         marker.addTo(markersLayer);
     });
 }
@@ -504,10 +510,10 @@ function updateAlerts() {
         item.className = "alert-card";
         item.innerHTML = `
             <div>
-                <strong>${escapeHTML(e.source_id)} [${escapeHTML(e.state)}] - High Intensity Event</strong>
-                <p style="font-size:12px; color:var(--muted)">Type: ${escapeHTML(e.predicted_event_type)} | Confidence: ${e.confidence.toFixed(1)}% | Persistence: ${e.persistence_score}%</p>
+                <strong>${e.source_id} [${e.state}] - High Intensity Event</strong>
+                <p style="font-size:12px; color:var(--muted)">Type: ${e.predicted_event_type} | Confidence: ${e.confidence.toFixed(1)}% | Persistence: ${e.persistence_score}%</p>
             </div>
-            <button class="btn-secondary" onclick="window.showEventDetails('${escapeHTML(e.source_id)}')">Inspect</button>
+            <button class="btn-secondary" onclick="showEventDetails('${e.source_id}')">Inspect</button>
         `;
         list.appendChild(item);
     });
@@ -523,8 +529,7 @@ function setupNationalAuthorityAlerts() {
     });
 }
 
-/* EXPOSE EVENT DETAILS FUNCTION GLOBALLY */
-window.showEventDetails = function(sourceId) {
+function showEventDetails(sourceId) {
     const event = allEvents.find(e => String(e.source_id) === String(sourceId));
     const container = document.getElementById("details-content");
     if (!event || !container) return;
@@ -534,17 +539,21 @@ window.showEventDetails = function(sourceId) {
 
     container.innerHTML = `
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-            <div><span style="color:var(--muted); font-size:12px;">SOURCE ID</span><br><strong>${escapeHTML(event.source_id)}</strong></div>
-            <div><span style="color:var(--muted); font-size:12px;">STATE JURISDICTION</span><br><strong>${escapeHTML(event.state)}</strong></div>
-            <div><span style="color:var(--muted); font-size:12px;">EVENT CLASSIFICATION</span><br><strong>${escapeHTML(event.predicted_event_type)}</strong></div>
-            <div><span style="color:var(--muted); font-size:12px;">CONFIDENCE SCORE</span><br><strong style="color:var(--cyan, #00f2fe)">${event.confidence.toFixed(1)}%</strong></div>
-            <div><span style="color:var(--muted); font-size:12px;">PERSISTENCE SCORE</span><br><strong style="color:var(--agricultural, #2ecc71)">${event.persistence_score}%</strong></div>
+            <div><span style="color:var(--muted); font-size:12px;">SOURCE ID</span><br><strong>${event.source_id}</strong></div>
+            <div><span style="color:var(--muted); font-size:12px;">STATE JURISDICTION</span><br><strong>${event.state}</strong></div>
+            <div><span style="color:var(--muted); font-size:12px;">EVENT CLASSIFICATION</span><br><strong>${event.predicted_event_type}</strong></div>
+            <div><span style="color:var(--muted); font-size:12px;">CONFIDENCE SCORE</span><br><strong style="color:var(--cyan)">${event.confidence.toFixed(1)}%</strong></div>
+            <div><span style="color:var(--muted); font-size:12px;">PERSISTENCE SCORE</span><br><strong style="color:var(--agricultural)">${event.persistence_score}%</strong></div>
             <div><span style="color:var(--muted); font-size:12px;">LATITUDE / LONGITUDE</span><br><strong>${event.latitude}, ${event.longitude}</strong></div>
+        </div>
+        <div style="margin-top: 15px;">
+            <span style="color:var(--muted); font-size:12px;">THERMAL DETECTION SNAPSHOT</span><br>
+            <img src="${event.imageUrl || sampleFireImages[0]}" alt="Thermal Fire Snapshot" style="width:100%; max-width:350px; height:auto; margin-top:8px; border-radius:6px;" />
         </div>
     `;
 
     document.getElementById("details-panel")?.scrollIntoView({ behavior: 'smooth' });
-};
+}
 
 /* AI PREDICTION FORM */
 function setupPredictionForm() {
@@ -554,21 +563,22 @@ function setupPredictionForm() {
     form.addEventListener("submit", function (e) {
         e.preventDefault();
 
-        const activeDays = Number(document.getElementById("active_days")?.value) || 0;
-        const obsSpan = Number(document.getElementById("observation_span")?.value) || 1;
+        const activeDays = Number(document.getElementById("active_days").value) || 0;
+        const obsSpan = Number(document.getElementById("observation_span").value) || 1;
         const calculatedPersistence = Math.min(100, Math.round((activeDays / obsSpan) * 100));
         const selectedState = document.getElementById("state-filter")?.value !== "ALL" ? document.getElementById("state-filter").value : "Odisha";
 
         const payload = {
             source_id: "PRED_" + Date.now().toString().substring(8),
             state: selectedState,
-            latitude: Number(document.getElementById("latitude")?.value || 0),
-            longitude: Number(document.getElementById("longitude")?.value || 0),
-            mean_frp: Number(document.getElementById("mean_frp")?.value || 0),
-            predicted_event_type: document.getElementById("facility_type")?.value !== "None" ? "Industrial" : "Agricultural",
+            latitude: Number(document.getElementById("latitude").value),
+            longitude: Number(document.getElementById("longitude").value),
+            mean_frp: Number(document.getElementById("mean_frp").value),
+            predicted_event_type: document.getElementById("facility_type").value !== "None" ? "Industrial" : "Agricultural",
             confidence: Math.floor(Math.random() * (98 - 72 + 1)) + 72,
             persistence_score: calculatedPersistence,
-            landcover: "Monitored Zone"
+            landcover: "Monitored Zone",
+            imageUrl: sampleFireImages[0]
         };
 
         saveEventToDatabase(payload);
@@ -576,21 +586,16 @@ function setupPredictionForm() {
         applyFilters();
 
         const resultBox = document.getElementById("prediction-result");
-        if (resultBox) {
-            resultBox.classList.remove("hidden");
-            setText("result-type", payload.predicted_event_type);
-            setText("result-confidence-value", `${payload.confidence.toFixed(1)}%`);
-            setText("result-persistence-value", `${payload.persistence_score}%`);
+        resultBox.classList.remove("hidden");
+        setText("result-type", payload.predicted_event_type);
+        setText("result-confidence-value", `${payload.confidence.toFixed(1)}%`);
+        setText("result-persistence-value", `${payload.persistence_score}%`);
 
-            const confFill = document.getElementById("result-confidence-fill");
-            const persFill = document.getElementById("result-persistence-fill");
-            if (confFill) confFill.style.width = `${payload.confidence}%`;
-            if (persFill) persFill.style.width = `${payload.persistence_score}%`;
-            
-            resultBox.scrollIntoView({ behavior: 'smooth' });
-        }
+        document.getElementById("result-confidence-fill").style.width = `${payload.confidence}%`;
+        document.getElementById("result-persistence-fill").style.width = `${payload.persistence_score}%`;
         
         showToast(`New prediction recorded: ${payload.source_id}`, "success");
+        resultBox.scrollIntoView({ behavior: 'smooth' });
     });
 }
 
@@ -658,79 +663,50 @@ function applyFilters() {
     updateAlerts();
 }
 
-/* LOCAL STORAGE & HELPER FUNCTIONS */
+/* LOCAL STORAGE & TOAST MESSAGES */
 function loadDatabase() {
-    try { 
-        return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); 
-    } catch { 
-        return []; 
-    }
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } 
+    catch { return []; }
 }
 
-function saveEventToDatabase(eventPayload) {
+function saveEventToDatabase(event) {
     const db = loadDatabase();
-    db.unshift(eventPayload);
+    db.push(event);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
 }
 
-function normalizeType(typeStr) {
-    if (!typeStr) return "Other";
-    const lower = String(typeStr).toLowerCase();
-    if (lower.includes("industrial") || lower.includes("facility")) return "Industrial";
-    if (lower.includes("forest") || lower.includes("tree") || lower.includes("natural")) return "Forest/Natural";
-    if (lower.includes("agri") || lower.includes("crop")) return "Agricultural";
+function showToast(message, type = "info") {
+    const container = document.getElementById("toast-container");
+    if (!container) return;
+
+    const toast = document.createElement("div");
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 4000);
+}
+
+function normalizeType(type) {
+    const val = String(type).toLowerCase();
+    if (val.includes("industrial")) return "Industrial";
+    if (val.includes("forest") || val.includes("natural")) return "Forest/Natural";
+    if (val.includes("agricultural")) return "Agricultural";
     return "Other";
 }
 
 function getEventColor(type) {
-    switch (type) {
-        case "Industrial": return "#e74c3c";
-        case "Forest/Natural": return "#2ecc71";
-        case "Agricultural": return "#f39c12";
-        default: return "#9b59b6";
-    }
+    if (type === "Industrial") return "#ff4d5a";
+    if (type === "Forest/Natural") return "#22c55e";
+    if (type === "Agricultural") return "#f59e0b";
+    return "#94a3b8";
 }
 
-function setText(elementId, val) {
-    const el = document.getElementById(elementId);
-    if (el) el.textContent = val;
+function setText(id, txt) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = txt;
 }
 
 function escapeHTML(str) {
-    return String(str ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
-
-function showToast(message, type = "info") {
-    let container = document.getElementById("toast-container");
-    if (!container) {
-        container = document.createElement("div");
-        container.id = "toast-container";
-        container.style.cssText = "position:fixed; bottom:20px; right:20px; z-index:9999; display:flex; flex-direction:column; gap:10px;";
-        document.body.appendChild(container);
-    }
-
-    const toast = document.createElement("div");
-    toast.className = `toast toast-${type}`;
-    toast.style.cssText = `
-        padding: 12px 20px;
-        border-radius: 6px;
-        color: #fff;
-        font-family: system-ui, sans-serif;
-        font-size: 14px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        background: ${type === 'alert' ? '#e74c3c' : type === 'success' ? '#2ecc71' : '#3498db'};
-        transition: opacity 0.3s ease;
-    `;
-    toast.textContent = message;
-
-    container.appendChild(toast);
-    setTimeout(() => {
-        toast.style.opacity = "0";
-        setTimeout(() => toast.remove(), 300);
-    }, 4000);
+    return String(str).replace(/[&<>"']/g, '');
 }
