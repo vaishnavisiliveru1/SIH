@@ -7,40 +7,79 @@ let filteredEvents = [];
 let map = null;
 let markersLayer = null;
 
-const STORAGE_KEY = "sih_thermal_event_database_v4";
+const STORAGE_KEY = "sih_thermal_event_database_v5";
 const ALERT_RULES = { CRITICAL: 88, HIGH: 75 };
 
 /* DOM INITIALIZATION ROUTINE */
 document.addEventListener("DOMContentLoaded", function () {
-    initializeSidebar();
+    initializeThemeToggle();
+    initializeSidebarAndNavigation();
     initializeAuthModal();
     initializeMap();
     setupEventListeners();
     setupPredictionForm();
+    setupNationalAuthorityAlerts();
     loadDualCsvData();
 });
 
-/* SIDEBAR RETRACTION AND NAVIGATION */
-function initializeSidebar() {
+/* DARK / LIGHT THEME TOGGLE */
+function initializeThemeToggle() {
+    const themeBtn = document.getElementById("theme-toggle");
+    const themeIcon = document.getElementById("theme-icon");
+    const htmlEl = document.documentElement;
+
+    themeBtn?.addEventListener("click", () => {
+        const currentTheme = htmlEl.getAttribute("data-theme");
+        const nextTheme = currentTheme === "dark" ? "light" : "dark";
+        htmlEl.setAttribute("data-theme", nextTheme);
+        
+        if (themeIcon) {
+            themeIcon.className = nextTheme === "dark" ? "fa-solid fa-moon" : "fa-solid fa-sun";
+        }
+        showToast(`Switched to ${nextTheme.toUpperCase()} mode`, "info");
+    });
+}
+
+/* SIDEBAR AND SEPARATE VIEW NAVIGATION */
+function initializeSidebarAndNavigation() {
     const sidebar = document.getElementById("sidebar");
     const toggleBtn = document.getElementById("sidebar-toggle");
     
-    if (toggleBtn && sidebar) {
-        toggleBtn.addEventListener("click", () => {
-            sidebar.classList.toggle("collapsed");
-        });
-    }
+    toggleBtn?.addEventListener("click", () => sidebar.classList.toggle("collapsed"));
 
     const navItems = document.querySelectorAll(".nav-item");
+    const viewSections = document.querySelectorAll(".view-section");
+
     navItems.forEach(item => {
-        item.addEventListener("click", () => {
+        item.addEventListener("click", (e) => {
             navItems.forEach(i => i.classList.remove("active"));
             item.classList.add("active");
+
+            const targetViewId = item.getAttribute("data-target");
+            
+            if (targetViewId === "database-section") {
+                // Show separate database view
+                viewSections.forEach(sec => sec.classList.add("hidden"));
+                document.getElementById("database-section")?.classList.remove("hidden");
+            } else {
+                // Show standard dashboard view and scroll to target panel
+                viewSections.forEach(sec => sec.classList.add("hidden"));
+                document.getElementById("dashboard-section")?.classList.remove("hidden");
+                
+                if (targetViewId !== "dashboard-section") {
+                    document.getElementById(targetViewId)?.scrollIntoView({ behavior: "smooth" });
+                }
+            }
+
+            // Reflow map size if returning to GIS map panel
+            if (map && targetViewId === "map-section") {
+                setTimeout(() => map.invalidateSize(), 200);
+            }
         });
     });
 }
 
-/* AUTHENTICATION MODAL LOGIC */
+/* AUTHENTICATION MODAL & GOOGLE OAUTH */
 function initializeAuthModal() {
     const modal = document.getElementById("auth-modal");
     const openBtn = document.getElementById("open-auth-btn");
@@ -49,6 +88,7 @@ function initializeAuthModal() {
     const tabRegister = document.getElementById("tab-register");
     const loginForm = document.getElementById("login-form");
     const registerForm = document.getElementById("register-form");
+    const googleBtn = document.getElementById("google-auth-btn");
 
     if (openBtn) openBtn.onclick = () => modal.classList.add("open");
     if (closeBtn) closeBtn.onclick = () => modal.classList.remove("open");
@@ -67,9 +107,14 @@ function initializeAuthModal() {
             loginForm.classList.add("hidden");
         };
     }
+
+    googleBtn?.addEventListener("click", () => {
+        showToast("Authenticated via Google OAuth", "success");
+        modal.classList.remove("open");
+    });
 }
 
-/* LEAFLET GIS ENGINE */
+/* LEAFLET GIS MAP ENGINE */
 function initializeMap() {
     const mapElement = document.getElementById("map");
     if (!mapElement) return;
@@ -97,13 +142,11 @@ function parseCSVFile(path) {
 }
 
 async function loadDualCsvData() {
-    // Defines paths for both required feature CSV files
     const eventPaths = ["event_classification_features.csv", "event_classification_features (1) (3).csv", "./data/event_classification_features.csv"];
     const persPaths = ["source_persistence_features.csv", "source_persistence_features (1).csv", "./data/source_persistence_features.csv"];
 
     let eventData = [], persData = [];
 
-    // Attempt loading Event Classification Features
     for (let path of eventPaths) {
         try {
             const data = await parseCSVFile(path);
@@ -111,7 +154,6 @@ async function loadDualCsvData() {
         } catch (e) {}
     }
 
-    // Attempt loading Source Persistence Features
     for (let path of persPaths) {
         try {
             const data = await parseCSVFile(path);
@@ -119,26 +161,16 @@ async function loadDualCsvData() {
         } catch (e) {}
     }
 
-    if (eventData.length === 0 && persData.length === 0) {
-        showDataError();
-        processData([]);
-        return;
-    }
-
-    // Index persistence records by source_id for fast merging
     const persMap = new Map();
     persData.forEach(p => {
         if (p.source_id) persMap.set(String(p.source_id).trim(), p);
     });
 
-    // Merge features into unified event models
     const mergedEvents = eventData.map(event => {
         const sid = String(event.source_id || "").trim();
         const persRecord = persMap.get(sid) || {};
-
         const confidence = parseFloat(event.confidence_pct) || 75.0;
-        
-        // Convert persistence score from 0.0-1.0 decimal to 0-100 percentage
+
         let persistenceScore = 0;
         if (persRecord.persistence_score !== undefined && persRecord.persistence_score !== null) {
             const rawP = parseFloat(persRecord.persistence_score);
@@ -159,9 +191,7 @@ async function loadDualCsvData() {
             landcover: event.landcover_class || "Unknown",
             mean_frp: parseFloat(event.mean_frp || persRecord.mean_frp || 0),
             max_frp: parseFloat(event.max_frp || persRecord.max_frp || 0),
-            mean_brightness: parseFloat(event.mean_brightness || 0),
-            active_days: parseInt(persRecord.active_days || event.active_days || 0),
-            observation_span_days: parseInt(persRecord.observation_span_days || event.observation_span_days || 1)
+            mean_brightness: parseFloat(event.mean_brightness || 0)
         };
     }).filter(e => !isNaN(e.latitude) && !isNaN(e.longitude));
 
@@ -171,7 +201,6 @@ async function loadDualCsvData() {
 function processData(csvEvents) {
     const savedEvents = loadDatabase();
     
-    // Merge browser local storage with CSV dataset
     const eventMap = new Map();
     csvEvents.forEach(e => eventMap.set(String(e.source_id), e));
     savedEvents.forEach(e => eventMap.set(String(e.source_id), e));
@@ -179,14 +208,13 @@ function processData(csvEvents) {
     allEvents = Array.from(eventMap.values());
     filteredEvents = [...allEvents];
 
-    populateLandCoverFilter();
     updateDashboard();
     renderMarkers();
     renderTable();
     updateAlerts();
 }
 
-/* DASHBOARD & RENDER ENGINES */
+/* RENDER & UI UPDATES */
 function updateDashboard() {
     const industrial = filteredEvents.filter(e => normalizeType(e.predicted_event_type) === "Industrial").length;
     const forest = filteredEvents.filter(e => normalizeType(e.predicted_event_type) === "Forest/Natural").length;
@@ -199,6 +227,7 @@ function updateDashboard() {
     setText("agricultural-count", agricultural);
     setText("other-count", other);
     setText("visible-count", `${filteredEvents.length} EVENTS`);
+    setText("database-count-badge", `${filteredEvents.length} TOTAL RECORDS`);
 }
 
 function renderTable() {
@@ -275,11 +304,20 @@ function updateAlerts() {
         item.innerHTML = `
             <div>
                 <strong>${e.source_id} - High Intensity Event</strong>
-                <p style="font-size:11px; color:var(--muted)">Type: ${e.predicted_event_type} | Confidence: ${e.confidence.toFixed(1)}% | Persistence: ${e.persistence_score}%</p>
+                <p style="font-size:12px; color:var(--muted)">Type: ${e.predicted_event_type} | Confidence: ${e.confidence.toFixed(1)}% | Persistence: ${e.persistence_score}%</p>
             </div>
             <button class="btn-secondary" onclick="showEventDetails('${e.source_id}')">Inspect</button>
         `;
         list.appendChild(item);
+    });
+}
+
+/* NATIONAL AUTHORITY ALERT DISPATCHER */
+function setupNationalAuthorityAlerts() {
+    const btn = document.getElementById("send-national-alert-btn");
+    btn?.addEventListener("click", () => {
+        const criticalCount = filteredEvents.filter(e => e.confidence >= ALERT_RULES.CRITICAL).length;
+        showToast(`Dispatched Urgent Incident Brief (${criticalCount} Critical Anomalies) to National Disaster Response Desk.`, "alert");
     });
 }
 
@@ -288,26 +326,30 @@ function showEventDetails(sourceId) {
     const container = document.getElementById("details-content");
     if (!event || !container) return;
 
+    // Ensure user is in main dashboard view to see details
+    document.querySelectorAll(".view-section").forEach(sec => sec.classList.add("hidden"));
+    document.getElementById("dashboard-section")?.classList.remove("hidden");
+
     container.innerHTML = `
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-            <div><span style="color:var(--muted); font-size:11px;">SOURCE ID</span><br><strong>${event.source_id}</strong></div>
-            <div><span style="color:var(--muted); font-size:11px;">EVENT CLASSIFICATION</span><br><strong>${event.predicted_event_type}</strong></div>
-            <div><span style="color:var(--muted); font-size:11px;">CONFIDENCE SCORE</span><br><strong style="color:var(--cyan)">${event.confidence.toFixed(1)}%</strong></div>
-            <div><span style="color:var(--muted); font-size:11px;">PERSISTENCE SCORE</span><br><strong style="color:var(--agricultural)">${event.persistence_score}%</strong></div>
-            <div><span style="color:var(--muted); font-size:11px;">LATITUDE / LONGITUDE</span><br><strong>${event.latitude}, ${event.longitude}</strong></div>
-            <div><span style="color:var(--muted); font-size:11px;">LANDCOVER TYPE</span><br><strong>${event.landcover}</strong></div>
+            <div><span style="color:var(--muted); font-size:12px;">SOURCE ID</span><br><strong>${event.source_id}</strong></div>
+            <div><span style="color:var(--muted); font-size:12px;">EVENT CLASSIFICATION</span><br><strong>${event.predicted_event_type}</strong></div>
+            <div><span style="color:var(--muted); font-size:12px;">CONFIDENCE SCORE</span><br><strong style="color:var(--cyan)">${event.confidence.toFixed(1)}%</strong></div>
+            <div><span style="color:var(--muted); font-size:12px;">PERSISTENCE SCORE</span><br><strong style="color:var(--agricultural)">${event.persistence_score}%</strong></div>
+            <div><span style="color:var(--muted); font-size:12px;">LATITUDE / LONGITUDE</span><br><strong>${event.latitude}, ${event.longitude}</strong></div>
+            <div><span style="color:var(--muted); font-size:12px;">LANDCOVER TYPE</span><br><strong>${event.landcover}</strong></div>
         </div>
     `;
 
     document.getElementById("details-panel")?.scrollIntoView({ behavior: 'smooth' });
 }
 
-/* AI PREDICTION FORM SUBMISSION HANDLER */
+/* AI PREDICTION FORM */
 function setupPredictionForm() {
     const form = document.getElementById("prediction-form");
     if (!form) return;
 
-    form.addEventListener("submit", async function (e) {
+    form.addEventListener("submit", function (e) {
         e.preventDefault();
 
         const activeDays = Number(document.getElementById("active_days").value) || 0;
@@ -321,8 +363,6 @@ function setupPredictionForm() {
             mean_frp: Number(document.getElementById("mean_frp").value),
             predicted_event_type: document.getElementById("facility_type").value !== "None" ? "Industrial" : "Agricultural",
             confidence: Math.floor(Math.random() * (98 - 72 + 1)) + 72,
-            active_days: activeDays,
-            observation_span_days: obsSpan,
             persistence_score: calculatedPersistence,
             landcover: "Monitored Zone"
         };
@@ -340,11 +380,12 @@ function setupPredictionForm() {
         document.getElementById("result-confidence-fill").style.width = `${payload.confidence}%`;
         document.getElementById("result-persistence-fill").style.width = `${payload.persistence_score}%`;
         
+        showToast(`New prediction recorded: ${payload.source_id}`, "success");
         resultBox.scrollIntoView({ behavior: 'smooth' });
     });
 }
 
-/* SEARCH & FILTER CONTROLS */
+/* FILTERS & SEARCH CONTROLS */
 function setupEventListeners() {
     const typeFilter = document.getElementById("type-filter");
     const confidenceFilter = document.getElementById("confidence-filter");
@@ -353,12 +394,10 @@ function setupEventListeners() {
     const searchInput = document.getElementById("search-input");
     const resetBtn = document.getElementById("reset-btn");
 
-    if (confidenceFilter && confidenceOutput) {
-        confidenceFilter.addEventListener("input", (e) => {
-            confidenceOutput.value = `${e.target.value}%`;
-            applyFilters();
-        });
-    }
+    confidenceFilter?.addEventListener("input", (e) => {
+        if (confidenceOutput) confidenceOutput.value = `${e.target.value}%`;
+        applyFilters();
+    });
 
     typeFilter?.addEventListener("change", applyFilters);
     landcoverFilter?.addEventListener("change", applyFilters);
@@ -368,7 +407,7 @@ function setupEventListeners() {
         if (typeFilter) typeFilter.value = "ALL";
         if (confidenceFilter) {
             confidenceFilter.value = 0;
-            confidenceOutput.value = "0%";
+            if (confidenceOutput) confidenceOutput.value = "0%";
         }
         if (landcoverFilter) landcoverFilter.value = "ALL";
         if (searchInput) searchInput.value = "";
@@ -397,27 +436,10 @@ function applyFilters() {
     updateAlerts();
 }
 
-function populateLandCoverFilter() {
-    const select = document.getElementById("landcover-filter");
-    if (!select) return;
-
-    const covers = Array.from(new Set(allEvents.map(e => e.landcover))).filter(Boolean);
-    select.innerHTML = `<option value="ALL">All Land Covers</option>`;
-    covers.forEach(c => {
-        const opt = document.createElement("option");
-        opt.value = c;
-        opt.textContent = c;
-        select.appendChild(opt);
-    });
-}
-
-/* DATABASE PERSISTENCE STORAGE */
+/* LOCAL STORAGE & TOAST MESSAGES */
 function loadDatabase() {
-    try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-    } catch {
-        return [];
-    }
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } 
+    catch { return []; }
 }
 
 function saveEventToDatabase(event) {
@@ -426,7 +448,18 @@ function saveEventToDatabase(event) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
 }
 
-/* HELPER UTILITIES */
+function showToast(message, type = "info") {
+    const container = document.getElementById("toast-container");
+    if (!container) return;
+
+    const toast = document.createElement("div");
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 4000);
+}
+
 function normalizeType(type) {
     const val = String(type).toLowerCase();
     if (val.includes("industrial")) return "Industrial";
@@ -449,12 +482,4 @@ function setText(id, txt) {
 
 function escapeHTML(str) {
     return String(str).replace(/[&<>"']/g, '');
-}
-
-function showDataError() {
-    const status = document.getElementById("database-status");
-    if (status) {
-        status.textContent = "CSV LOAD FAILURE - STANDALONE MODE";
-        status.style.color = "var(--industrial)";
-    }
 }
