@@ -22,17 +22,17 @@
         </div>
 
         <nav class="sidebar-menu">
-            <a href="#dashboard-section" class="nav-item active" data-target="dashboard-section"><i class="fa-solid fa-chart-line"></i><span>Dashboard</span></a>
-            <a href="#map-section" class="nav-item" data-target="map-section"><i class="fa-solid fa-earth-americas"></i><span>Geospatial Map</span></a>
-            <a href="#prediction-section" class="nav-item" data-target="prediction-section"><i class="fa-solid fa-wand-magic-sparkles"></i><span>AI Predictor</span></a>
-            <a href="#alerts-section" class="nav-item" data-target="alerts-section"><i class="fa-solid fa-bell"></i><span>Alerts Center</span></a>
-            <a href="#database-section" class="nav-item" data-target="database-section"><i class="fa-solid fa-database"></i><span>Event Database</span></a>
+            <a href="#dashboard-section" class="nav-item active" data-target="dashboard-section"><i class="fa-solid fa-chart-line"></i><span id="nav-dash">Dashboard</span></a>
+            <a href="#map-section" class="nav-item" data-target="map-section"><i class="fa-solid fa-earth-americas"></i><span id="nav-map">Geospatial Map</span></a>
+            <a href="#prediction-section" class="nav-item" data-target="prediction-section"><i class="fa-solid fa-wand-magic-sparkles"></i><span id="nav-predict">AI Predictor</span></a>
+            <a href="#alerts-section" class="nav-item" data-target="alerts-section"><i class="fa-solid fa-bell"></i><span id="nav-alerts">Alerts Center</span></a>
+            <a href="#database-section" class="nav-item" data-target="database-section"><i class="fa-solid fa-database"></i><span id="nav-db">Event Database</span></a>
         </nav>
 
         <div class="sidebar-footer">
             <button class="btn-login-modal" id="open-auth-btn">
                 <i class="fa-solid fa-right-to-bracket"></i>
-                <span>Login / Register</span>
+                <span id="nav-login">Login / Register</span>
             </button>
         </div>
     </aside>
@@ -40,22 +40,44 @@
     <!-- MAIN DASHBOARD CONTENT -->
     <main class="main-content" id="main-content">
         
-        <!-- TOP APP HEADER -->
+        <!-- TOP APP HEADER WITH MULTILINGUAL & VOICE ASSISTANT -->
         <header class="top-header">
             <div class="header-left">
-                <h1>AI THERMAL EVENT INTELLIGENCE</h1>
-                <p>NASA FIRMS • OSM • SATELLITE MULTI-MODAL DETECTION</p>
+                <h1 id="app-heading">AI THERMAL EVENT INTELLIGENCE</h1>
+                <p id="app-subheading">NASA FIRMS • OSM • SATELLITE MULTI-MODAL DETECTION</p>
             </div>
+            
             <div class="header-right">
+                <!-- Multilingual Controls -->
+                <div class="voice-lang-container">
+                    <select id="language-select" class="lang-dropdown">
+                        <option value="en-US">English</option>
+                        <option value="hi-IN">हिन्दी (Hindi)</option>
+                        <option value="ta-IN">தமிழ் (Tamil)</option>
+                        <option value="te-IN">తెలుగు (Telugu)</option>
+                    </select>
+                    <button id="mic-btn" class="btn-voice-mic">
+                        <i class="fa-solid fa-microphone"></i>
+                        <span id="mic-label">Voice Control</span>
+                    </button>
+                </div>
+
                 <button class="theme-toggle-btn" id="theme-toggle" aria-label="Toggle Dark/Light Mode">
                     <i class="fa-solid fa-moon" id="theme-icon"></i>
                 </button>
+                
                 <div class="system-status">
-                    <span class="status-indicator"><i class="live-dot"></i> SYSTEM ONLINE</span>
+                    <span class="status-indicator"><i class="live-dot"></i> <span id="txt-sys-online">SYSTEM ONLINE</span></span>
                     <span class="status-sub" id="database-status">DATABASE READY</span>
                 </div>
             </div>
         </header>
+
+        <!-- VOICE ASSISTANT TRANSCRIPT FEEDBACK BOX -->
+        <div class="voice-transcript-banner" id="voice-transcript-banner">
+            <i class="fa-solid fa-waveform-lines"></i>
+            <span id="transcript-text">Press Voice Control and say a command (e.g. "Show Odisha", "Filter Industrial")...</span>
+        </div>
 
         <div class="dashboard-container">
 
@@ -67,45 +89,56 @@
                     <div class="stat-card total-card">
                         <div class="stat-icon"><i class="fa-solid fa-satellite-dish"></i></div>
                         <div>
-                            <span class="stat-label">TOTAL THERMAL SOURCES</span>
+                            <span class="stat-label" id="lbl-total-sources">TOTAL THERMAL SOURCES</span>
                             <strong id="total-sources">563</strong>
                         </div>
                     </div>
                     <div class="stat-card industrial-card">
                         <div class="stat-icon"><i class="fa-solid fa-industry"></i></div>
                         <div>
-                            <span class="stat-label"><i class="fa-solid fa-industry"></i> INDUSTRIAL FIRES</span>
+                            <span class="stat-label" id="lbl-ind-fires"><i class="fa-solid fa-industry"></i> INDUSTRIAL FIRES</span>
                             <strong id="industrial-count">123</strong>
                         </div>
                     </div>
                     <div class="stat-card forest-card">
                         <div class="stat-icon"><i class="fa-solid fa-tree"></i></div>
                         <div>
-                            <span class="stat-label">FOREST / NATURAL</span>
+                            <span class="stat-label" id="lbl-forest-fires">FOREST / NATURAL</span>
                             <strong id="forest-count">212</strong>
                         </div>
                     </div>
                     <div class="stat-card agricultural-card">
                         <div class="stat-icon"><i class="fa-solid fa-wheat-awn"></i></div>
                         <div>
-                            <span class="stat-label">AGRICULTURAL</span>
+                            <span class="stat-label" id="lbl-agri-fires">AGRICULTURAL</span>
                             <strong id="agricultural-count">123</strong>
                         </div>
                     </div>
                     <div class="stat-card other-card">
                         <div class="stat-icon"><i class="fa-solid fa-circle-question"></i></div>
                         <div>
-                            <span class="stat-label">OTHER / UNKNOWN</span>
+                            <span class="stat-label" id="lbl-other-fires">OTHER / UNKNOWN</span>
                             <strong id="other-count">105</strong>
                         </div>
                     </div>
                 </section>
 
-                <!-- FILTERS AND CONTROLS PANEL -->
+                <!-- FILTERS AND CONTROLS PANEL (STATE & EVENT FILTERS) -->
                 <section class="control-panel">
                     <div class="filter-grid">
                         <div class="filter-group">
-                            <label for="type-filter">Event Type</label>
+                            <label for="state-filter" id="lbl-select-state">Select Jurisdiction / State</label>
+                            <select id="state-filter">
+                                <option value="ALL">All States (National View)</option>
+                                <option value="Odisha">Odisha</option>
+                                <option value="Jharkhand">Jharkhand</option>
+                                <option value="Chhattisgarh">Chhattisgarh</option>
+                                <option value="Maharashtra">Maharashtra</option>
+                                <option value="Karnataka">Karnataka</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="type-filter" id="lbl-event-type">Event Type</label>
                             <select id="type-filter">
                                 <option value="ALL">All Event Types</option>
                                 <option value="Industrial">Industrial</option>
@@ -115,14 +148,14 @@
                             </select>
                         </div>
                         <div class="filter-group">
-                            <label for="confidence-filter">Min Confidence Score (%)</label>
+                            <label for="confidence-filter" id="lbl-min-conf">Min Confidence Score (%)</label>
                             <div class="range-container">
                                 <input type="range" id="confidence-filter" min="0" max="100" value="0">
                                 <output id="confidence-output">0%</output>
                             </div>
                         </div>
                         <div class="filter-group">
-                            <label for="landcover-filter">Landcover Class</label>
+                            <label for="landcover-filter" id="lbl-landcover">Landcover Class</label>
                             <select id="landcover-filter">
                                 <option value="ALL">All Land Covers</option>
                                 <option value="Built-up">Built-up</option>
@@ -132,17 +165,15 @@
                                 <option value="Cropland">Cropland</option>
                                 <option value="Permanent water bodies">Permanent water bodies</option>
                                 <option value="Shrubland">Shrubland</option>
-                                <option value="Herbaceous wetland">Herbaceous wetland</option>
-                                <option value="Mangroves">Mangroves</option>
                             </select>
                         </div>
                         <div class="filter-group search-group">
-                            <label for="search-input">Search ID</label>
+                            <label for="search-input" id="lbl-search-id">Search ID / Region</label>
                             <input type="text" id="search-input" placeholder="e.g. SOURCE_0001">
                         </div>
                         <div class="filter-group button-group">
                             <label>&nbsp;</label>
-                            <button id="reset-btn" class="btn-secondary"><i class="fa-solid fa-rotate-right"></i> Reset Filters</button>
+                            <button id="reset-btn" class="btn-secondary"><i class="fa-solid fa-rotate-right"></i> <span id="lbl-reset-btn">Reset Filters</span></button>
                         </div>
                     </div>
                 </section>
@@ -152,7 +183,7 @@
                     <div class="panel-header">
                         <div>
                             <span class="panel-kicker">GIS MONITORING</span>
-                            <h2>Spatial Distribution & Active Hotspots</h2>
+                            <h2 id="lbl-map-heading">Spatial Distribution & Active Hotspots</h2>
                         </div>
                         <span id="visible-count" class="badge">0 EVENTS</span>
                     </div>
@@ -164,7 +195,7 @@
                     <div class="panel-header">
                         <div>
                             <span class="panel-kicker">ML ENGINE</span>
-                            <h2>Run AI Classification & Thermal Persistence Analysis</h2>
+                            <h2 id="lbl-predict-heading">Run AI Classification & Thermal Persistence Analysis</h2>
                         </div>
                     </div>
                     <form id="prediction-form" class="prediction-content">
@@ -229,7 +260,7 @@
                             </div>
                         </div>
                         <button type="submit" id="predict-button" class="btn-primary">
-                            <i class="fa-solid fa-wand-magic-sparkles"></i> PREDICT & SAVE EVENT
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> <span id="lbl-predict-btn">PREDICT & SAVE EVENT</span>
                         </button>
                     </form>
 
@@ -265,15 +296,15 @@
                     </div>
                 </section>
 
-                <!-- CRITICAL ALERTS & NATIONAL AUTHORITY NOTIFICATIONS CENTER -->
+                <!-- CRITICAL ALERTS & NATIONAL AUTHORITY DISPATCH -->
                 <section class="alert-center" id="alerts-section">
                     <div class="panel-header">
                         <div>
                             <span class="panel-kicker">EARLY WARNING & AUTHORITY DISPATCH</span>
-                            <h2><i class="fa-solid fa-bell"></i> Thermal Event Alerts</h2>
+                            <h2><i class="fa-solid fa-bell"></i> <span id="lbl-alerts-heading">Thermal Event Alerts</span></h2>
                         </div>
                         <button id="send-national-alert-btn" class="btn-authority">
-                            <i class="fa-solid fa-paper-plane"></i> Dispatch National Authority Alert
+                            <i class="fa-solid fa-paper-plane"></i> <span id="lbl-dispatch-btn">Dispatch National Authority Alert</span>
                         </button>
                     </div>
                     <div class="alert-summary">
@@ -306,7 +337,7 @@
                     <div class="panel-header">
                         <div>
                             <span class="panel-kicker">EVENT DATABASE</span>
-                            <h2>Detected Thermal Sources Registry</h2>
+                            <h2 id="lbl-db-heading">Detected Thermal Sources Registry</h2>
                         </div>
                         <span id="database-count-badge" class="badge">0 TOTAL RECORDS</span>
                     </div>
@@ -315,12 +346,12 @@
                             <thead>
                                 <tr>
                                     <th>Source ID</th>
+                                    <th>State</th>
                                     <th>Type</th>
                                     <th>Confidence</th>
                                     <th>Persistence</th>
                                     <th>Latitude</th>
                                     <th>Longitude</th>
-                                    <th>Landcover</th>
                                     <th>Mean FRP</th>
                                     <th>Action</th>
                                 </tr>
@@ -343,7 +374,6 @@
                 <button class="auth-tab" id="tab-register">Register</button>
             </div>
 
-            <!-- CONTINUE WITH GOOGLE BUTTON -->
             <button type="button" class="btn-google" id="google-auth-btn">
                 <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.3 9 5 12 5z"/><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.7-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z"/><path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 12.3 0 15s.7 5.3 1.9 7.7l3.7-2.9c-.2-.7-.4-1.5-.4-2.3z"/><path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.3-6.4-5.2L1.9 16c1.8 3.7 5.6 7 10.1 7z"/></svg>
                 Continue with Google
@@ -381,13 +411,13 @@
         </div>
     </div>
 
-    <!-- NOTIFICATION TOAST POPUP -->
+    <!-- TOAST POPUP NOTIFICATIONS -->
     <div id="toast-container" class="toast-container"></div>
 
-    <!-- External Libraries -->
+    <!-- Leaflet & Data Libraries -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
-    <!-- Application Logic -->
+    <!-- Core Application JavaScript -->
     <script src="app.js"></script>
 </body>
 </html>
