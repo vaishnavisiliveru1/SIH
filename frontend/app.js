@@ -709,4 +709,4 @@ function setText(id, txt) {
 
 function escapeHTML(str) {
     return String(str).replace(/[&<>"']/g, '');
-}
+}   
