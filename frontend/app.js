@@ -7,20 +7,53 @@ let nasaMiniMap = null;
 const STORAGE_KEY = "sih_thermal_event_database_v6";
 const ALERT_RULES = { CRITICAL: 88, HIGH: 75 };
 
-// Sample fire images for hotspot popups
-const sampleFireImages = [
-    "https://images.unsplash.com/photo-1542224566-6e85f2e6772f?auto=format&fit=crop&w=600&q=80",
-    "https://images.unsplash.com/photo-1508873696983-2df515122519?auto=format&fit=crop&w=600&q=80",
-    "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?auto=format&fit=crop&w=600&q=80"
-];
+// Comprehensive list of all Indian States and Union Territories with map view coordinates
+const stateCoordinates = {
+    "Andhra Pradesh": { lat: 15.9129, lng: 79.7400, zoom: 7 },
+    "Arunachal Pradesh": { lat: 28.2180, lng: 94.7278, zoom: 7 },
+    "Assam": { lat: 26.2006, lng: 92.9376, zoom: 7 },
+    "Bihar": { lat: 25.0961, lng: 85.3131, zoom: 7 },
+    "Chhattisgarh": { lat: 21.2787, lng: 81.8661, zoom: 7 },
+    "Goa": { lat: 15.2993, lng: 74.1240, zoom: 9 },
+    "Gujarat": { lat: 22.2587, lng: 71.1924, zoom: 7 },
+    "Haryana": { lat: 29.0588, lng: 76.0856, zoom: 8 },
+    "Himachal Pradesh": { lat: 31.1048, lng: 77.1734, zoom: 8 },
+    "Jharkhand": { lat: 23.6102, lng: 85.2799, zoom: 7 },
+    "Karnataka": { lat: 15.3173, lng: 75.7139, zoom: 7 },
+    "Kerala": { lat: 10.8505, lng: 76.2711, zoom: 8 },
+    "Madhya Pradesh": { lat: 22.9734, lng: 78.6569, zoom: 7 },
+    "Maharashtra": { lat: 19.7515, lng: 75.7139, zoom: 7 },
+    "Manipur": { lat: 24.6637, lng: 93.9063, zoom: 8 },
+    "Meghalaya": { lat: 25.4670, lng: 91.3662, zoom: 8 },
+    "Mizoram": { lat: 23.1645, lng: 92.9376, zoom: 8 },
+    "Nagaland": { lat: 26.1584, lng: 94.5624, zoom: 8 },
+    "Odisha": { lat: 20.9517, lng: 85.0985, zoom: 7 },
+    "Punjab": { lat: 31.1471, lng: 75.3412, zoom: 8 },
+    "Rajasthan": { lat: 27.0238, lng: 74.2179, zoom: 7 },
+    "Sikkim": { lat: 27.5330, lng: 88.5122, zoom: 9 },
+    "Tamil Nadu": { lat: 11.1271, lng: 78.6569, zoom: 7 },
+    "Telangana": { lat: 18.1124, lng: 79.0193, zoom: 7 },
+    "Tripura": { lat: 23.9408, lng: 91.9882, zoom: 9 },
+    "Uttar Pradesh": { lat: 26.8467, lng: 80.9462, zoom: 7 },
+    "Uttarakhand": { lat: 30.0668, lng: 79.0193, zoom: 8 },
+    "West Bengal": { lat: 22.9868, lng: 87.8550, zoom: 7 },
+    "Andaman and Nicobar Islands": { lat: 11.7401, lng: 92.6586, zoom: 7 },
+    "Chandigarh": { lat: 30.7333, lng: 76.7794, zoom: 11 },
+    "Dadra and Nagar Haveli and Daman and Diu": { lat: 20.1809, lng: 73.0169, zoom: 9 },
+    "Delhi": { lat: 28.7041, lng: 77.1025, zoom: 10 },
+    "Jammu and Kashmir": { lat: 33.7782, lng: 76.5762, zoom: 7 },
+    "Ladakh": { lat: 34.1526, lng: 77.5771, zoom: 7 },
+    "Lakshadweep": { lat: 10.5667, lng: 72.6417, zoom: 9 },
+    "Puducherry": { lat: 11.9416, lng: 79.8083, zoom: 10 }
+};
 
-// Default embedded dataset as fallback if local CSV loading is restricted
+// Default embedded fallback dataset
 const defaultFallbackEvents = [
-    { source_id: "SOURCE_0001", state: "Odisha", latitude: 20.7957, longitude: 85.2547, predicted_event_type: "Industrial", confidence: 92.4, persistence_score: 85, landcover: "Built-up", mean_frp: 35.4, imageUrl: sampleFireImages[0] },
-    { source_id: "SOURCE_0002", state: "Jharkhand", latitude: 23.6102, longitude: 85.2799, predicted_event_type: "Forest/Natural", confidence: 89.1, persistence_score: 72, landcover: "Tree cover", mean_frp: 18.2, imageUrl: sampleFireImages[1] },
-    { source_id: "SOURCE_0003", state: "Chhattisgarh", latitude: 21.2787, longitude: 81.8661, predicted_event_type: "Agricultural", confidence: 78.5, persistence_score: 45, landcover: "Cropland", mean_frp: 12.0, imageUrl: sampleFireImages[2] },
-    { source_id: "SOURCE_0004", state: "Maharashtra", latitude: 19.7515, longitude: 75.7139, predicted_event_type: "Industrial", confidence: 94.0, persistence_score: 91, landcover: "Built-up", mean_frp: 52.1, imageUrl: sampleFireImages[0] },
-    { source_id: "SOURCE_0005", state: "Karnataka", latitude: 15.3173, longitude: 75.7139, predicted_event_type: "Other", confidence: 64.2, persistence_score: 30, landcover: "Grassland", mean_frp: 8.5, imageUrl: sampleFireImages[1] }
+    { source_id: "SOURCE_0001", state: "Odisha", latitude: 20.7957, longitude: 85.2547, predicted_event_type: "Industrial", confidence: 92.4, persistence_score: 85, landcover: "Built-up", mean_frp: 35.4 },
+    { source_id: "SOURCE_0002", state: "Jharkhand", latitude: 23.6102, longitude: 85.2799, predicted_event_type: "Forest/Natural", confidence: 89.1, persistence_score: 72, landcover: "Tree cover", mean_frp: 18.2 },
+    { source_id: "SOURCE_0003", state: "Chhattisgarh", latitude: 21.2787, longitude: 81.8661, predicted_event_type: "Agricultural", confidence: 78.5, persistence_score: 45, landcover: "Cropland", mean_frp: 12.0 },
+    { source_id: "SOURCE_0004", state: "Maharashtra", latitude: 19.7515, longitude: 75.7139, predicted_event_type: "Industrial", confidence: 94.0, persistence_score: 91, landcover: "Built-up", mean_frp: 52.1 },
+    { source_id: "SOURCE_0005", state: "Karnataka", latitude: 15.3173, longitude: 75.7139, predicted_event_type: "Other", confidence: 64.2, persistence_score: 30, landcover: "Grassland", mean_frp: 8.5 }
 ];
 
 /* DICTIONARY FOR MULTILINGUAL UI TRANSLATION */
@@ -65,7 +98,7 @@ const uiTranslations = {
         appHeading: "AI థర్మల్ ఈవెంట్ ఇంటెలిజెన్స్",
         appSubheading: "నాసా ఫిర్మ్స్ • OSM • ఉపగ్రహ మల్టీ-మోడల్ డిటెక్షన్",
         sysOnline: "సిస్టమ్ ఆన్‌లైన్",
-        navDash: "డాష్‌బోర్డ్", navMap: "జియోస్పేషియల్ మ్యాప్", navPredict: "AI ప్రిడిక్టర్", navAlerts: "అలర్ట్స్ సెంటర్", navDb: "ఈవెంట్ డేటాబేస్", navLogin: "లాగిన్ / రిజిస్టర్",
+        navDash: "డాష్‌బోర్డ్", navMap: "జియోస్పేషియల్ మ్యాప్", navPredict: "AI ప్రిడిక్టర్", navAlerts: "అలర్ట్స్ సెంటర్", navDb: "ఈవент డేటాబేస్", navLogin: "లాగిన్ / రిజిస్టర్",
         lblTotalSources: "మొత్తం థర్మల్ మూలాలు", lblIndFires: "పారిశ్రామిక మంటలు", lblForestFires: "అడవి / సహజ స్థలాలు", lblAgriFires: "వ్యవసాయ మంటలు", lblOtherFires: "ఇతర / తెలియనివి",
         lblSelectState: "రాష్ట్రాన్ని ఎంచుకోండి", lblEventType: "ఈవెంట్ రకం", lblMinConf: "కనీస విశ్వసనీయత (%)", lblLandcover: "ల్యాండ్‌కవర్ రకం", lblSearchId: "శోధన ID",
         lblResetBtn: "ఫిల్టర్లు రీసెట్ చేయండి", lblMapHeading: "స్పేషియల్ డిస్ట్రిబ్యూషన్ & హాట్‌స్పాట్‌లు", lblPredictHeading: "AI వర్గీకరణ విశ్లేషణ",
@@ -75,17 +108,9 @@ const uiTranslations = {
     }
 };
 
-/* STATE BOUNDING COORDINATES FOR MAP PANNING */
-const stateCoordinates = {
-    "Odisha": { lat: 20.9517, lng: 85.0985, zoom: 7 },
-    "Jharkhand": { lat: 23.6102, lng: 85.2799, zoom: 7 },
-    "Chhattisgarh": { lat: 21.2787, lng: 81.8661, zoom: 7 },
-    "Maharashtra": { lat: 19.7515, lng: 75.7139, zoom: 6 },
-    "Karnataka": { lat: 15.3173, lng: 75.7139, zoom: 6 }
-};
-
 /* DOM INITIALIZATION ROUTINE */
 document.addEventListener("DOMContentLoaded", function () {
+    populateStateDropdowns();
     initializeThemeToggle();
     initializeSidebarAndNavigation();
     initializeAuthModal();
@@ -96,6 +121,33 @@ document.addEventListener("DOMContentLoaded", function () {
     initializeMultilingualAndVoice();
     loadDualCsvData();
 });
+
+/* POPULATE STATE SELECT DROPDOWNS DYNAMICALLY */
+function populateStateDropdowns() {
+    const stateFilter = document.getElementById("state-filter");
+    const predState = document.getElementById("pred-state");
+    const stateList = Object.keys(stateCoordinates).sort();
+
+    if (stateFilter) {
+        stateFilter.innerHTML = `<option value="">All States</option>`;
+        stateList.forEach(st => {
+            const opt = document.createElement("option");
+            opt.value = st;
+            opt.textContent = st;
+            stateFilter.appendChild(opt);
+        });
+    }
+
+    if (predState) {
+        predState.innerHTML = `<option value="">Select State</option>`;
+        stateList.forEach(st => {
+            const opt = document.createElement("option");
+            opt.value = st;
+            opt.textContent = st;
+            predState.appendChild(opt);
+        });
+    }
+}
 
 /* HELPER UTILITIES */
 function escapeHTML(str) {
@@ -249,21 +301,10 @@ function processVoiceCommand(command, lang) {
     const stateFilter = document.getElementById("state-filter");
     const typeFilter = document.getElementById("type-filter");
 
-    if (command.includes("odisha") || command.includes("ओडिशा") || command.includes("ஒடிசா")) {
-        if (stateFilter) stateFilter.value = "Odisha";
-        speakResponse("Filtering dashboard for Odisha", lang);
-    } else if (command.includes("jharkhand") || command.includes("झारखंड") || command.includes("ஜார்க்கண்ட்")) {
-        if (stateFilter) stateFilter.value = "Jharkhand";
-        speakResponse("Filtering dashboard for Jharkhand", lang);
-    } else if (command.includes("chhattisgarh") || command.includes("छत्तीसगढ़") || command.includes("சத்தீஸ்கர்")) {
-        if (stateFilter) stateFilter.value = "Chhattisgarh";
-        speakResponse("Filtering dashboard for Chhattisgarh", lang);
-    } else if (command.includes("maharashtra") || command.includes("महाराष्ट्र") || command.includes("மகாராஷ்டிரா")) {
-        if (stateFilter) stateFilter.value = "Maharashtra";
-        speakResponse("Filtering dashboard for Maharashtra", lang);
-    } else if (command.includes("karnataka") || command.includes("कर्नाटक") || command.includes("கர்நாடகா")) {
-        if (stateFilter) stateFilter.value = "Karnataka";
-        speakResponse("Filtering dashboard for Karnataka", lang);
+    const matchedState = Object.keys(stateCoordinates).find(st => command.includes(st.toLowerCase()));
+    if (matchedState && stateFilter) {
+        stateFilter.value = matchedState;
+        speakResponse(`Filtering dashboard for ${matchedState}`, lang);
     }
 
     if (command.includes("industrial") || command.includes("इंडस्ट्रियल") || command.includes("தொழில்துறை")) {
@@ -492,7 +533,7 @@ async function loadDualCsvData() {
     }
 
     let mergedEvents = [];
-    const statesList = ["Odisha", "Jharkhand", "Chhattisgarh", "Maharashtra", "Karnataka"];
+    const statesList = Object.keys(stateCoordinates);
 
     if (eventData.length > 0) {
         const persMap = new Map();
@@ -526,8 +567,7 @@ async function loadDualCsvData() {
                 landcover: event.landcover_class || "Unknown",
                 mean_frp: parseFloat(event.mean_frp || persRecord.mean_frp || 0),
                 max_frp: parseFloat(event.max_frp || persRecord.max_frp || 0),
-                mean_brightness: parseFloat(event.mean_brightness || 0),
-                imageUrl: sampleFireImages[idx % sampleFireImages.length]
+                mean_brightness: parseFloat(event.mean_brightness || 0)
             };
         }).filter(e => !isNaN(e.latitude) && !isNaN(e.longitude));
     }
@@ -613,19 +653,16 @@ function renderMarkers() {
             fillOpacity: 0.85
         });
         
+        // Popup without any image element
         const popupContent = `
             <div class="popup-container">
-                <h4>🔥 ${escapeHTML(e.source_id)}</h4>
-                <p><strong>State:</strong> ${escapeHTML(e.state || 'N/A')}</p>
-                <p><strong>Type:</strong> ${normalizeType(e.predicted_event_type)}</p>
-                <p><strong>Confidence:</strong> ${Number(e.confidence).toFixed(1)}%</p>
-                <p><strong>Persistence:</strong> ${e.persistence_score}%</p>
-                <img 
-                  src="${e.imageUrl || sampleFireImages[0]}" 
-                  alt="Fire Image at ${escapeHTML(e.source_id)}" 
-                  class="popup-fire-img"
-                  onerror="this.onerror=null; this.src='https://via.placeholder.com/200x120?text=Fire+Image+Unavailable';"
-                />
+                <h4 style="margin:0 0 8px 0; color:#ef4444; font-size:15px; font-weight:700;">🔥 ${escapeHTML(e.source_id)}</h4>
+                <div style="font-size:13px; line-height:1.6; color:#334155;">
+                    <p style="margin:2px 0;"><strong>State:</strong> ${escapeHTML(e.state || 'N/A')}</p>
+                    <p style="margin:2px 0;"><strong>Type:</strong> ${normalizeType(e.predicted_event_type)}</p>
+                    <p style="margin:2px 0;"><strong>Confidence:</strong> ${Number(e.confidence).toFixed(1)}%</p>
+                    <p style="margin:2px 0;"><strong>Persistence:</strong> ${e.persistence_score}%</p>
+                </div>
             </div>
         `;
 
@@ -780,8 +817,7 @@ function setupPredictionForm() {
             confidence: 88.5,
             persistence_score: 75,
             landcover: "Built-up",
-            mean_frp: frp,
-            imageUrl: sampleFireImages[0]
+            mean_frp: frp
         };
 
         allEvents.unshift(newEvent);
@@ -801,25 +837,4 @@ function setupNationalAuthorityAlerts() {
         const currentState = stateSelect ? stateSelect.value : "National";
         showToast(`Dispatched Urgent Incident Brief (${criticalCount} Critical Anomalies in ${currentState}) to NDMA Desk.`, "alert");
     });
-}
-
-/* NASA TILE LOAD HANDLERS */
-function handleNasaImageLoad() {
-    const loadingEl = document.getElementById("nasa-loading");
-    const errorEl = document.getElementById("nasa-error");
-    const imgEl = document.getElementById("nasa-sat-image");
-
-    if (loadingEl) loadingEl.classList.add("hidden");
-    if (errorEl) errorEl.classList.add("hidden");
-    if (imgEl) imgEl.classList.remove("hidden");
-}
-
-function handleNasaImageError() {
-    const loadingEl = document.getElementById("nasa-loading");
-    const errorEl = document.getElementById("nasa-error");
-    const imgEl = document.getElementById("nasa-sat-image");
-
-    if (loadingEl) loadingEl.classList.add("hidden");
-    if (imgEl) imgEl.classList.add("hidden");
-    if (errorEl) errorEl.classList.remove("hidden");
 }
