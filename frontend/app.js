@@ -555,6 +555,7 @@ function setupNationalAuthorityAlerts() {
 }
 
 /* SHOW DETAILED EVENT METRICS & DYNAMIC NASA SATELLITE IMAGERY */
+/* SHOW DETAILED EVENT METRICS & DYNAMIC NASA SATELLITE IMAGERY */
 function showEventDetails(sourceId) {
     const event = allEvents.find(e => String(e.source_id) === String(sourceId));
     const container = document.getElementById("details-content");
@@ -564,18 +565,23 @@ function showEventDetails(sourceId) {
     document.querySelectorAll(".view-section").forEach(sec => sec.classList.add("hidden"));
     document.getElementById("dashboard-section")?.classList.remove("hidden");
 
-    // Dynamic Date Calculation: Fetch imagery from yesterday to ensure tile availability
+    // Dynamic Date Calculation: Use T-2 days for 100% tile availability on GIBS
     const dateObj = new Date();
-    dateObj.setDate(dateObj.getDate() - 1);
+    dateObj.setDate(dateObj.getDate() - 2);
     const dateIso = dateObj.toISOString().split("T")[0]; // Format: YYYY-MM-DD
 
-    // Calculate ~0.15 degree Bounding Box around source coordinates
     const lat = Number(event.latitude);
     const lon = Number(event.longitude);
-    const bbox = `${lat - 0.08},${lon - 0.08},${lat + 0.08},${lon + 0.08}`;
 
-    // Construct NASA GIBS WMS Satellite Imagery URL (VIIRS True Color)
-    const nasaSatelliteUrl = `https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&LAYERS=VIIRS_SNPP_CorrectedReflectance_TrueColor&STYLES=&FORMAT=image/jpeg&TRANSPARENT=false&HEIGHT=500&WIDTH=600&TIME=${dateIso}&CRS=EPSG:4326&BBOX=${bbox}`;
+    // CORRECTED BBOX ORDER: min_lon, min_lat, max_lon, max_lat
+    const minLon = (lon - 0.15).toFixed(4);
+    const minLat = (lat - 0.15).toFixed(4);
+    const maxLon = (lon + 0.15).toFixed(4);
+    const maxLat = (lat + 0.15).toFixed(4);
+    const bbox = `${minLon},${minLat},${maxLon},${maxLat}`;
+
+    // CORRECTED NASA GIBS WMS URL FORMAT
+    const nasaSatelliteUrl = `https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&LAYERS=VIIRS_SNPP_CorrectedReflectance_TrueColor&STYLES=&FORMAT=image/jpeg&TRANSPARENT=false&HEIGHT=500&WIDTH=600&TIME=${dateIso}&VERSION=1.3.0&CRS=EPSG:4326&BBOX=${bbox}`;
 
     container.innerHTML = `
         <div class="details-grid">
@@ -595,7 +601,7 @@ function showEventDetails(sourceId) {
                         <span class="nasa-title"><i class="fa-solid fa-satellite"></i> NASA Satellite Imagery</span>
                         <span class="nasa-subtext">Latest available imagery (${dateIso})</span>
                     </div>
-                    <span class="badge" style="font-size:10px;">EPSG:4326</span>
+                    <span class="badge">EPSG:4326</span>
                 </div>
 
                 <div class="nasa-img-container" id="nasa-img-container">
@@ -632,22 +638,6 @@ function showEventDetails(sourceId) {
 
     document.getElementById("details-panel")?.scrollIntoView({ behavior: 'smooth' });
 }
-
-/* NASA SATELLITE IMAGERY EVENT HANDLERS */
-function handleNasaImageLoad() {
-    const loadingEl = document.getElementById("nasa-loading");
-    const imgEl = document.getElementById("nasa-sat-image");
-    if (loadingEl) loadingEl.classList.add("hidden");
-    if (imgEl) imgEl.classList.remove("hidden");
-}
-
-function handleNasaImageError() {
-    const loadingEl = document.getElementById("nasa-loading");
-    const errorEl = document.getElementById("nasa-error");
-    if (loadingEl) loadingEl.classList.add("hidden");
-    if (errorEl) errorEl.classList.remove("hidden");
-}
-
 /* AI PREDICTION FORM */
 function setupPredictionForm() {
     const form = document.getElementById("prediction-form");
