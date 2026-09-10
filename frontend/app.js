@@ -803,3 +803,4 @@ function setupNationalAuthorityAlerts() {
         showToast(`Dispatched Urgent Incident Brief (${criticalCount} Critical Anomalies in ${currentState}) to NDMA Desk.`, "alert");
     });
 }
+
