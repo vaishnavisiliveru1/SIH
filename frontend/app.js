@@ -684,28 +684,27 @@ function showEventDetails(sourceId) {
     const container = document.getElementById("details-content");
     if (!event || !container) return;
 
-    // Ensure Dashboard section is visible
     document.querySelectorAll(".view-section").forEach(sec => sec.classList.add("hidden"));
     document.getElementById("dashboard-section")?.classList.remove("hidden");
 
-    // Fetch imagery from 5 days ago to guarantee Sentinel-2 pass coverage
+    // Dynamic date formatting (Defaults to 2 days ago for reliable GIBS tile availability)
     const dateObj = new Date();
-    dateObj.setDate(dateObj.getDate() - 5);
-    const dateIso = dateObj.toISOString().split("T")[0]; // YYYY-MM-DD
+    dateObj.setDate(dateObj.getDate() - 2);
+    const dateIso = dateObj.toISOString().split("T")[0]; 
 
     const lat = Number(event.latitude);
     const lon = Number(event.longitude);
 
-    // Bounding Box (Latitude first for WMS 1.3.0 EPSG:4326)
-    const minLat = (lat - 0.08).toFixed(4);
-    const minLon = (lon - 0.08).toFixed(4);
-    const maxLat = (lat + 0.08).toFixed(4);
-    const maxLon = (lon + 0.08).toFixed(4);
+    // Correct EPSG:4326 WMS ordering: minLon, minLat, maxLon, maxLat
+    const minLat = (lat - 0.05).toFixed(4);
+    const minLon = (lon - 0.05).toFixed(4);
+    const maxLat = (lat + 0.05).toFixed(4);
+    const maxLon = (lon + 0.05).toFixed(4);
     
-    const bbox = `${minLat},${minLon},${maxLat},${maxLon}`;
+    const bbox = `${minLon},${minLat},${maxLon},${maxLat}`;
 
-    // NASA GIBS WMS 1.3.0 Endpoint with Sentinel-2 High-Resolution Layer
-    const sentinel2Url = `https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&LAYERS=Sentinel_2_L2A_Color_Infrared&STYLES=&FORMAT=image/jpeg&TRANSPARENT=false&HEIGHT=600&WIDTH=600&TIME=${dateIso}&VERSION=1.3.0&CRS=EPSG:4326&BBOX=${bbox}`;
+    // Reliable NASA GIBS WMS Endpoint for Sentinel-2 Corrected Reflectance
+    const sentinel2Url = `https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&LAYERS=Sentinel_2_L1C_Color_Infrared&STYLES=&FORMAT=image/jpeg&TRANSPARENT=false&HEIGHT=600&WIDTH=600&TIME=${dateIso}&VERSION=1.3.0&CRS=EPSG:4326&BBOX=${bbox}`;
 
     container.innerHTML = `
         <div class="details-grid">
@@ -723,7 +722,7 @@ function showEventDetails(sourceId) {
                 <div class="nasa-card-header">
                     <div>
                         <span class="nasa-title"><i class="fa-solid fa-satellite-dish"></i> Sentinel-2 High-Res Imagery</span>
-                        <span class="nasa-subtext">ESA / NASA GIBS 10m-20m SWIR Band (${dateIso})</span>
+                        <span class="nasa-subtext">ESA / NASA GIBS Infrared (${dateIso})</span>
                     </div>
                     <span class="badge" style="background:#0284c7; color:#fff;">10m Resolution</span>
                 </div>
@@ -736,7 +735,7 @@ function showEventDetails(sourceId) {
 
                     <div class="nasa-error hidden" id="nasa-error">
                         <i class="fa-solid fa-triangle-exclamation"></i>
-                        <span>Sentinel-2 tile unavailable for exact coordinate pass. Try adjusting date window.</span>
+                        <span>Sentinel-2 tile unavailable for this date/coordinate. Try adjusting date window.</span>
                     </div>
 
                     <img 
@@ -758,21 +757,6 @@ function showEventDetails(sourceId) {
     `;
 
     document.getElementById("details-panel")?.scrollIntoView({ behavior: 'smooth' });
-}
-
-/* HELPER HANDLERS FOR SATELLITE IMAGE LOADING STATES */
-function handleNasaImageLoad() {
-    const loading = document.getElementById("nasa-loading");
-    const img = document.getElementById("nasa-sat-image");
-    if (loading) loading.classList.add("hidden");
-    if (img) img.classList.remove("hidden");
-}
-
-function handleNasaImageError() {
-    const loading = document.getElementById("nasa-loading");
-    const error = document.getElementById("nasa-error");
-    if (loading) loading.classList.add("hidden");
-    if (error) error.classList.remove("hidden");
 }
 
 /* AI PREDICTION FORM HANDLER */
