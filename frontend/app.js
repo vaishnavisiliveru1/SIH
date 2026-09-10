@@ -677,8 +677,28 @@ function setupNationalAuthorityAlerts() {
     });
 }
 
+/* NASA TILE LOAD HANDLERS */
+function handleNasaImageLoad() {
+    const loadingEl = document.getElementById("nasa-loading");
+    const errorEl = document.getElementById("nasa-error");
+    const imgEl = document.getElementById("nasa-sat-image");
+
+    if (loadingEl) loadingEl.classList.add("hidden");
+    if (errorEl) errorEl.classList.add("hidden");
+    if (imgEl) imgEl.classList.remove("hidden");
+}
+
+function handleNasaImageError() {
+    const loadingEl = document.getElementById("nasa-loading");
+    const errorEl = document.getElementById("nasa-error");
+    const imgEl = document.getElementById("nasa-sat-image");
+
+    if (loadingEl) loadingEl.classList.add("hidden");
+    if (imgEl) imgEl.classList.add("hidden");
+    if (errorEl) errorEl.classList.remove("hidden");
+}
+
 /* SHOW DETAILED EVENT METRICS & DYNAMIC NASA SATELLITE IMAGERY */
-/* SHOW DETAILED EVENT METRICS & HIGH-RES SENTINEL-2 SATELLITE IMAGERY */
 function showEventDetails(sourceId) {
     const event = allEvents.find(e => String(e.source_id) === String(sourceId));
     const container = document.getElementById("details-content");
@@ -687,7 +707,7 @@ function showEventDetails(sourceId) {
     document.querySelectorAll(".view-section").forEach(sec => sec.classList.add("hidden"));
     document.getElementById("dashboard-section")?.classList.remove("hidden");
 
-    // Dynamic date formatting (Defaults to 2 days ago for reliable GIBS tile availability)
+    // Dynamic date formatting
     const dateObj = new Date();
     dateObj.setDate(dateObj.getDate() - 2);
     const dateIso = dateObj.toISOString().split("T")[0]; 
@@ -703,8 +723,8 @@ function showEventDetails(sourceId) {
     
     const bbox = `${minLon},${minLat},${maxLon},${maxLat}`;
 
-    // Reliable NASA GIBS WMS Endpoint for Sentinel-2 Corrected Reflectance
-    const sentinel2Url = `https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&LAYERS=Sentinel_2_L1C_Color_Infrared&STYLES=&FORMAT=image/jpeg&TRANSPARENT=false&HEIGHT=600&WIDTH=600&TIME=${dateIso}&VERSION=1.3.0&CRS=EPSG:4326&BBOX=${bbox}`;
+    // VIIRS Corrected Reflectance for daily worldwide tile availability
+    const satTileUrl = `https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&LAYERS=VIIRS_SNPP_CorrectedReflectance_TrueColor&STYLES=&FORMAT=image/jpeg&TRANSPARENT=false&HEIGHT=600&WIDTH=600&TIME=${dateIso}&VERSION=1.3.0&CRS=EPSG:4326&BBOX=${bbox}`;
 
     container.innerHTML = `
         <div class="details-grid">
@@ -717,31 +737,31 @@ function showEventDetails(sourceId) {
                 <div><span class="metric-label">COORDINATES</span><br><strong>${lat.toFixed(4)}°, ${lon.toFixed(4)}°</strong></div>
             </div>
 
-            <!-- HIGH-RES SENTINEL-2 SATELLITE CARD -->
+            <!-- HIGH-RES SATELLITE CARD -->
             <div class="nasa-card">
                 <div class="nasa-card-header">
                     <div>
-                        <span class="nasa-title"><i class="fa-solid fa-satellite-dish"></i> Sentinel-2 High-Res Imagery</span>
-                        <span class="nasa-subtext">ESA / NASA GIBS Infrared (${dateIso})</span>
+                        <span class="nasa-title"><i class="fa-solid fa-satellite-dish"></i> Daily Satellite Imagery</span>
+                        <span class="nasa-subtext">VIIRS / NASA GIBS TrueColor (${dateIso})</span>
                     </div>
-                    <span class="badge" style="background:#0284c7; color:#fff;">10m Resolution</span>
+                    <span class="badge" style="background:#0284c7; color:#fff;">Daily Coverage</span>
                 </div>
 
                 <div class="nasa-img-container" id="nasa-img-container">
                     <div class="nasa-loading" id="nasa-loading">
                         <i class="fa-solid fa-spinner fa-spin"></i>
-                        <span>Loading High-Resolution Sentinel-2 Tile...</span>
+                        <span>Loading Satellite Tile...</span>
                     </div>
 
                     <div class="nasa-error hidden" id="nasa-error">
                         <i class="fa-solid fa-triangle-exclamation"></i>
-                        <span>Sentinel-2 tile unavailable for this date/coordinate. Try adjusting date window.</span>
+                        <span>Satellite tile unavailable for this date/coordinate. Try adjusting date window.</span>
                     </div>
 
                     <img 
                         id="nasa-sat-image" 
-                        src="${sentinel2Url}" 
-                        alt="Sentinel-2 Snapshot at ${lat}, ${lon}"
+                        src="${satTileUrl}" 
+                        alt="Satellite Snapshot at ${lat}, ${lon}"
                         class="nasa-sat-img hidden"
                         onload="handleNasaImageLoad()"
                         onerror="handleNasaImageError()"
@@ -750,7 +770,7 @@ function showEventDetails(sourceId) {
 
                 <div class="nasa-card-footer">
                     <span><strong>Center Point:</strong> ${lat.toFixed(4)}° N, ${lon.toFixed(4)}° E</span>
-                    <span class="badge-status">Infrared / SWIR Spectrum</span>
+                    <span class="badge-status">Visible / Infrared Spectrum</span>
                 </div>
             </div>
         </div>
@@ -806,5 +826,3 @@ function setupPredictionForm() {
         form.reset();
     });
 }
-
-
