@@ -822,3 +822,4 @@ function setupPredictionForm() {
         form.reset();
     });
 }
+
