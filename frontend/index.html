@@ -4,34 +4,35 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Thermal Event Intelligence Dashboard</title>
+    
     <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <!-- Custom Stylesheet -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <!-- RETRACTABLE SIDEBAR NAVIGATION -->
-    <aside class="sidebar" id="sidebar">
+    <aside class="sidebar" id="sidebar" aria-label="Sidebar Navigation">
         <div class="sidebar-header">
-            <div class="brand-icon"><i class="fa-solid fa-fire-flame-curved"></i></div>
+            <div class="brand-icon"><i class="fa-solid fa-fire-flame-curved" aria-hidden="true"></i></div>
             <span class="brand-title">THERMAL-AI</span>
-            <button class="toggle-btn" id="sidebar-toggle" aria-label="Toggle Navigation"><i class="fa-solid fa-bars"></i></button>
+            <button class="toggle-btn" id="sidebar-toggle" aria-label="Toggle Navigation"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
         </div>
 
         <nav class="sidebar-menu">
-            <a href="#dashboard-section" class="nav-item active" data-target="dashboard-section"><i class="fa-solid fa-chart-line"></i><span id="nav-dash">Dashboard</span></a>
-            <a href="#map-section" class="nav-item" data-target="map-section"><i class="fa-solid fa-earth-americas"></i><span id="nav-map">Geospatial Map</span></a>
-            <a href="#prediction-section" class="nav-item" data-target="prediction-section"><i class="fa-solid fa-wand-magic-sparkles"></i><span id="nav-predict">AI Predictor</span></a>
-            <a href="#alerts-section" class="nav-item" data-target="alerts-section"><i class="fa-solid fa-bell"></i><span id="nav-alerts">Alerts Center</span></a>
-            <a href="#database-section" class="nav-item" data-target="database-section"><i class="fa-solid fa-database"></i><span id="nav-db">Event Database</span></a>
+            <a href="#dashboard-section" class="nav-item active" data-target="dashboard-section"><i class="fa-solid fa-chart-line" aria-hidden="true"></i><span id="nav-dash">Dashboard</span></a>
+            <a href="#map-section" class="nav-item" data-target="map-section"><i class="fa-solid fa-earth-americas" aria-hidden="true"></i><span id="nav-map">Geospatial Map</span></a>
+            <a href="#prediction-section" class="nav-item" data-target="prediction-section"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i><span id="nav-predict">AI Predictor</span></a>
+            <a href="#alerts-section" class="nav-item" data-target="alerts-section"><i class="fa-solid fa-bell" aria-hidden="true"></i><span id="nav-alerts">Alerts Center</span></a>
+            <a href="#database-section" class="nav-item" data-target="database-section"><i class="fa-solid fa-database" aria-hidden="true"></i><span id="nav-db">Event Database</span></a>
         </nav>
 
         <div class="sidebar-footer">
-            <button class="btn-login-modal" id="open-auth-btn">
-                <i class="fa-solid fa-right-to-bracket"></i>
+            <button class="btn-login-modal" id="open-auth-btn" type="button">
+                <i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i>
                 <span id="nav-login">Login / Register</span>
             </button>
         </div>
@@ -48,19 +49,20 @@
             </div>
             <div class="header-right">
                 <div class="voice-lang-container">
+                    <label for="language-select" class="sr-only">Select Language</label>
                     <select id="language-select" class="lang-dropdown">
                         <option value="en-US">English</option>
                         <option value="hi-IN">हिन्दी (Hindi)</option>
                         <option value="ta-IN">தமிழ் (Tamil)</option>
                         <option value="te-IN">తెలుగు (Telugu)</option>
                     </select>
-                    <button id="mic-btn" class="btn-voice-mic">
-                        <i class="fa-solid fa-microphone"></i>
+                    <button id="mic-btn" class="btn-voice-mic" type="button">
+                        <i class="fa-solid fa-microphone" aria-hidden="true"></i>
                         <span id="mic-label">Voice Control</span>
                     </button>
                 </div>
-                <button class="theme-toggle-btn" id="theme-toggle" aria-label="Toggle Dark/Light Mode">
-                    <i class="fa-solid fa-moon" id="theme-icon"></i>
+                <button class="theme-toggle-btn" id="theme-toggle" aria-label="Toggle Dark/Light Mode" type="button">
+                    <i class="fa-solid fa-moon" id="theme-icon" aria-hidden="true"></i>
                 </button>
                 <div class="system-status">
                     <span class="status-indicator"><i class="live-dot"></i> <span id="txt-sys-online">SYSTEM ONLINE</span></span>
@@ -70,7 +72,7 @@
         </header>
 
         <div class="voice-transcript-banner">
-            <i class="fa-solid fa-comment-dots"></i>
+            <i class="fa-solid fa-comment-dots" aria-hidden="true"></i>
             <span id="transcript-text">Press Voice Control and say a command (e.g. 'Show Odisha', 'Filter Industrial')...</span>
         </div>
 
@@ -82,35 +84,35 @@
                 <!-- METRIC CARDS -->
                 <section class="stats-grid">
                     <div class="stat-card total-card">
-                        <div class="stat-icon"><i class="fa-solid fa-satellite-dish"></i></div>
+                        <div class="stat-icon"><i class="fa-solid fa-satellite-dish" aria-hidden="true"></i></div>
                         <div>
                             <span class="stat-label" id="lbl-total-sources">TOTAL THERMAL SOURCES</span>
                             <strong id="total-sources">0</strong>
                         </div>
                     </div>
                     <div class="stat-card industrial-card">
-                        <div class="stat-icon"><i class="fa-solid fa-industry"></i></div>
+                        <div class="stat-icon"><i class="fa-solid fa-industry" aria-hidden="true"></i></div>
                         <div>
                             <span class="stat-label" id="lbl-ind-fires">INDUSTRIAL FIRES</span>
                             <strong id="industrial-count">0</strong>
                         </div>
                     </div>
                     <div class="stat-card forest-card">
-                        <div class="stat-icon"><i class="fa-solid fa-tree"></i></div>
+                        <div class="stat-icon"><i class="fa-solid fa-tree" aria-hidden="true"></i></div>
                         <div>
                             <span class="stat-label" id="lbl-forest-fires">FOREST / NATURAL</span>
                             <strong id="forest-count">0</strong>
                         </div>
                     </div>
                     <div class="stat-card agricultural-card">
-                        <div class="stat-icon"><i class="fa-solid fa-wheat-awn"></i></div>
+                        <div class="stat-icon"><i class="fa-solid fa-wheat-awn" aria-hidden="true"></i></div>
                         <div>
                             <span class="stat-label" id="lbl-agri-fires">AGRICULTURAL</span>
                             <strong id="agricultural-count">0</strong>
                         </div>
                     </div>
                     <div class="stat-card other-card">
-                        <div class="stat-icon"><i class="fa-solid fa-circle-question"></i></div>
+                        <div class="stat-icon"><i class="fa-solid fa-circle-question" aria-hidden="true"></i></div>
                         <div>
                             <span class="stat-label" id="lbl-other-fires">OTHER / UNKNOWN</span>
                             <strong id="other-count">0</strong>
@@ -170,7 +172,7 @@
                         </div>
                         <div class="filter-group button-group">
                             <label>&nbsp;</label>
-                            <button id="reset-btn" class="btn-secondary"><i class="fa-solid fa-rotate-right"></i> <span id="lbl-reset-btn">Reset Filters</span></button>
+                            <button id="reset-btn" class="btn-secondary" type="button"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i> <span id="lbl-reset-btn">Reset Filters</span></button>
                         </div>
                     </div>
                 </section>
@@ -257,13 +259,13 @@
                             </div>
                         </div>
                         <button type="submit" id="predict-button" class="btn-primary">
-                            <i class="fa-solid fa-wand-magic-sparkles"></i> <span id="lbl-predict-btn">PREDICT & SAVE EVENT</span>
+                            <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> <span id="lbl-predict-btn">PREDICT & SAVE EVENT</span>
                         </button>
                     </form>
 
                     <div id="prediction-result" class="prediction-result-box hidden">
                         <div class="result-header">
-                            <i class="fa-solid fa-shield-halved" id="result-icon"></i>
+                            <i class="fa-solid fa-shield-halved" id="result-icon" aria-hidden="true"></i>
                             <div>
                                 <span class="panel-kicker">ANALYSIS RESULT</span>
                                 <h3 id="result-type">Industrial Fire</h3>
@@ -298,10 +300,10 @@
                     <div class="panel-header">
                         <div>
                             <span class="panel-kicker">EARLY WARNING & AUTHORITY DISPATCH</span>
-                            <h2><i class="fa-solid fa-bell"></i> <span id="lbl-alerts-heading">Thermal Event Alerts</span></h2>
+                            <h2><i class="fa-solid fa-bell" aria-hidden="true"></i> <span id="lbl-alerts-heading">Thermal Event Alerts</span></h2>
                         </div>
-                        <button id="send-national-alert-btn" class="btn-authority">
-                            <i class="fa-solid fa-paper-plane"></i> <span id="lbl-dispatch-btn">Dispatch National Authority Alert</span>
+                        <button id="send-national-alert-btn" class="btn-authority" type="button">
+                            <i class="fa-solid fa-paper-plane" aria-hidden="true"></i> <span id="lbl-dispatch-btn">Dispatch National Authority Alert</span>
                         </button>
                     </div>
                     <div class="alert-summary">
@@ -313,19 +315,21 @@
                 </section>
 
                 <!-- INSPECTION PANEL WITH NASA GIBS DYNAMIC SATELLITE IMAGERY -->
-<section class="details-panel" id="details-panel">
-    <div class="panel-header">
-        <div>
-            <span class="panel-kicker">INSPECTION</span>
-            <h2>Selected Event Metrics & Satellite Verification</h2>
-        </div>
-    </div>
-    <div id="details-content">
-        <p style="text-align: center; color: var(--muted); padding: 20px;">
-            Select an event from the map or database registry to review diagnostic parameters and satellite imagery.
-        </p>
-    </div>
-</section>
+                <section class="details-panel" id="details-panel">
+                    <div class="panel-header">
+                        <div>
+                            <span class="panel-kicker">INSPECTION</span>
+                            <h2>Selected Event Metrics & Satellite Verification</h2>
+                        </div>
+                    </div>
+                    <div id="details-content">
+                        <p style="text-align: center; color: var(--muted); padding: 20px;">
+                            Select an event from the map or database registry to review diagnostic parameters and satellite imagery.
+                        </p>
+                    </div>
+                </section>
+
+            </div>
 
             <!-- SEPARATE EVENT DATABASE VIEW SECTION -->
             <div id="database-section" class="view-section hidden">
@@ -341,15 +345,15 @@
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Source ID</th>
-                                    <th>State</th>
-                                    <th>Type</th>
-                                    <th>Confidence</th>
-                                    <th>Persistence</th>
-                                    <th>Latitude</th>
-                                    <th>Longitude</th>
-                                    <th>Mean FRP</th>
-                                    <th>Action</th>
+                                    <th scope="col">Source ID</th>
+                                    <th scope="col">State</th>
+                                    <th scope="col">Type</th>
+                                    <th scope="col">Confidence</th>
+                                    <th scope="col">Persistence</th>
+                                    <th scope="col">Latitude</th>
+                                    <th scope="col">Longitude</th>
+                                    <th scope="col">Mean FRP</th>
+                                    <th scope="col">Action</th>
                                 </tr>
                             </thead>
                             <tbody id="table-body"></tbody>
@@ -362,17 +366,17 @@
     </main>
 
     <!-- AUTHENTICATION MODAL -->
-    <div class="auth-modal" id="auth-modal">
+    <div class="auth-modal" id="auth-modal" role="dialog" aria-modal="true">
         <div class="auth-card">
-            <button class="auth-close" id="close-auth-btn" aria-label="Close Modal"><i class="fa-solid fa-xmark"></i></button>
+            <button class="auth-close" id="close-auth-btn" aria-label="Close Modal" type="button"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
             <div class="auth-tabs">
-                <button class="auth-tab active" id="tab-login">Login</button>
-                <button class="auth-tab" id="tab-register">Register</button>
+                <button class="auth-tab active" id="tab-login" type="button">Login</button>
+                <button class="auth-tab" id="tab-register" type="button">Register</button>
             </div>
 
             <!-- CONTINUE WITH GOOGLE BUTTON -->
             <button type="button" class="btn-google" id="google-auth-btn">
-                <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.3 9 5 12 5z"/><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.7-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z"/><path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 12.3 0 15s.7 5.3 1.9 7.7l3.7-2.9c-.2-.7-.4-1.5-.4-2.3z"/><path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.3-6.4-5.2L1.9 16c1.8 3.7 5.6 7 10.1 7z"/></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.3 9 5 12 5z"/><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.7-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z"/><path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 12.3 0 15s.7 5.3 1.9 7.7l3.7-2.9c-.2-.7-.4-1.5-.4-2.3z"/><path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.3-6.4-5.2L1.9 16c1.8 3.7 5.6 7 10.1 7z"/></svg>
                 Continue with Google
             </button>
 
@@ -380,28 +384,28 @@
             
             <form id="login-form" class="auth-form">
                 <div class="input-group-custom">
-                    <label>Email Address</label>
-                    <input type="email" required placeholder="user@agency.gov">
+                    <label for="login-email">Email Address</label>
+                    <input type="email" id="login-email" required placeholder="user@agency.gov">
                 </div>
                 <div class="input-group-custom">
-                    <label>Password</label>
-                    <input type="password" required placeholder="••••••••">
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" required placeholder="••••••••">
                 </div>
                 <button type="submit" class="btn-primary">Sign In</button>
             </form>
 
             <form id="register-form" class="auth-form hidden">
                 <div class="input-group-custom">
-                    <label>Full Name</label>
-                    <input type="text" required placeholder="John Doe">
+                    <label for="register-name">Full Name</label>
+                    <input type="text" id="register-name" required placeholder="John Doe">
                 </div>
                 <div class="input-group-custom">
-                    <label>Email Address</label>
-                    <input type="email" required placeholder="user@agency.gov">
+                    <label for="register-email">Email Address</label>
+                    <input type="email" id="register-email" required placeholder="user@agency.gov">
                 </div>
                 <div class="input-group-custom">
-                    <label>Password</label>
-                    <input type="password" required placeholder="••••••••">
+                    <label for="register-password">Password</label>
+                    <input type="password" id="register-password" required placeholder="••••••••">
                 </div>
                 <button type="submit" class="btn-primary">Create Account</button>
             </form>
@@ -412,8 +416,8 @@
     <div id="toast-container" class="toast-container"></div>
 
     <!-- External Libraries -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nXC0BJPkBTD0Xq8+tCgHda163MTCFsbE+vpXxx1c5=" crossorigin=""></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js" integrity="sha512-SGWgwwRA8xZgPeKTxrRLgVTy01lKc1FLUA30CkyOWKC0zx//UXEeuiucptqKh3fcuN2kyP1J18cNRSTBVYe1TQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <!-- Application Logic -->
     <script src="app.js"></script>
 </body>
