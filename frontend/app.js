@@ -47,7 +47,7 @@ const stateCoordinates = {
     "Puducherry": { lat: 11.9416, lng: 79.8083, zoom: 10 }
 };
 
-// Default fallback dataset with correct state-to-coordinate mapping
+// Default fallback dataset
 const defaultFallbackEvents = [
     { source_id: "SOURCE_0001", state: "Odisha", latitude: 20.7957, longitude: 85.2547, predicted_event_type: "Industrial", confidence: 92.4, persistence_score: 85, landcover: "Built-up", mean_frp: 35.4 },
     { source_id: "SOURCE_0002", state: "Jharkhand", latitude: 23.6102, longitude: 85.2799, predicted_event_type: "Forest/Natural", confidence: 89.1, persistence_score: 72, landcover: "Tree cover", mean_frp: 18.2 },
@@ -73,8 +73,9 @@ const uiTranslations = {
     }
 };
 
-/* DOM INITIALIZATION ROUTINE */
+/* DOM INITIALIZATION ROUTINE & APP LAUNCHER */
 document.addEventListener("DOMContentLoaded", function () {
+    initAppLauncher();
     populateStateDropdowns();
     initializeThemeToggle();
     initializeSidebarAndNavigation();
@@ -85,16 +86,25 @@ document.addEventListener("DOMContentLoaded", function () {
     setupNationalAuthorityAlerts();
     initializeMultilingualAndVoice();
     loadDualCsvData();
+    startLiveNasaWidget();
 });
 
-/* POPULATE STATE SELECT DROPDOWNS DYNAMICALLY */
+/* APP LAUNCHER: PRE-LOADS ALL STATES AND UTs & SHOWS STARTUP OVERLAY */
+function initAppLauncher() {
+    const authModal = document.getElementById("auth-modal");
+    if (authModal) {
+        authModal.classList.add("open");
+    }
+}
+
+/* POPULATE STATE SELECT DROPDOWNS DYNAMICALLY WITH ALL 28 STATES & UTs */
 function populateStateDropdowns() {
     const stateFilter = document.getElementById("state-filter");
     const predState = document.getElementById("pred-state") || document.getElementById("state");
     const stateList = Object.keys(stateCoordinates).sort();
 
     if (stateFilter) {
-        stateFilter.innerHTML = `<option value="">All States</option>`;
+        stateFilter.innerHTML = `<option value="">All States & UTs</option>`;
         stateList.forEach(st => {
             const opt = document.createElement("option");
             opt.value = st;
@@ -104,7 +114,7 @@ function populateStateDropdowns() {
     }
 
     if (predState) {
-        predState.innerHTML = `<option value="">Select State</option>`;
+        predState.innerHTML = `<option value="">Select State / UT</option>`;
         stateList.forEach(st => {
             const opt = document.createElement("option");
             opt.value = st;
@@ -148,7 +158,47 @@ function getEventColor(type) {
     }
 }
 
+/* DRAMATIC BOLD RED ALERT BANNER NOTIFICATION */
+function showDramaticBannerAlert(message, title = "CRITICAL THERMAL ANOMALY DETECTED") {
+    let alertBanner = document.getElementById("dramatic-alert-banner");
+    if (!alertBanner) {
+        alertBanner = document.createElement("div");
+        alertBanner.id = "dramatic-alert-banner";
+        alertBanner.className = "dramatic-alert-banner";
+        document.body.prepend(alertBanner);
+    }
+
+    alertBanner.innerHTML = `
+        <div class="banner-content">
+            <div class="banner-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            <div class="banner-text">
+                <span class="banner-title">${escapeHTML(title)}</span>
+                <span class="banner-msg">${escapeHTML(message)}</span>
+            </div>
+            <button class="banner-close" onclick="closeDramaticBanner()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+    `;
+
+    alertBanner.style.display = "block";
+    alertBanner.classList.add("pulse-glow");
+
+    setTimeout(() => closeDramaticBanner(), 8000);
+}
+
+function closeDramaticBanner() {
+    const banner = document.getElementById("dramatic-alert-banner");
+    if (banner) {
+        banner.style.display = "none";
+        banner.classList.remove("pulse-glow");
+    }
+}
+
 function showToast(message, type = "info") {
+    if (type === "alert") {
+        showDramaticBannerAlert(message);
+        return;
+    }
+
     let toastContainer = document.getElementById("toast-container");
     if (!toastContainer) {
         toastContainer = document.createElement("div");
@@ -158,7 +208,7 @@ function showToast(message, type = "info") {
     }
 
     const toast = document.createElement("div");
-    toast.style.cssText = `background:${type === 'alert' ? '#f43f5e' : type === 'success' ? '#10b981' : '#1e293b'}; color:#fff; padding:12px 18px; border-radius:8px; border:1px solid #334155; font-size:13px; font-weight:600; box-shadow:0 4px 12px rgba(0,0,0,0.3); transition:all 0.3s ease;`;
+    toast.style.cssText = `background:${type === 'success' ? '#10b981' : '#1e293b'}; color:#fff; padding:12px 18px; border-radius:8px; border:1px solid #334155; font-size:13px; font-weight:600; box-shadow:0 4px 12px rgba(0,0,0,0.3); transition:all 0.3s ease;`;
     toast.textContent = message;
     toastContainer.appendChild(toast);
 
@@ -168,7 +218,6 @@ function showToast(message, type = "info") {
     }, 3500);
 }
 
-// Distance-based lookup to find the closest real Indian state based on Lat/Lng coordinates
 function getNearestState(lat, lng) {
     let closestState = "National";
     let minDistance = Infinity;
@@ -205,6 +254,23 @@ function loadDatabase() {
     } catch (e) {
         return [];
     }
+}
+
+/* LIVE DYNAMIC NASA FIRMS STATUS WIDGET */
+function startLiveNasaWidget() {
+    updateNasaFirmsWidget();
+    setInterval(updateNasaFirmsWidget, 10000);
+}
+
+function updateNasaFirmsWidget() {
+    const activeDetections = filteredEvents.length;
+    const criticalCount = filteredEvents.filter(e => e.confidence >= ALERT_RULES.CRITICAL).length;
+    const now = new Date();
+    const timeStr = now.toUTCString().replace("GMT", "UTC");
+
+    setText("nasa-live-count", activeDetections);
+    setText("nasa-live-critical", criticalCount);
+    setText("nasa-last-update", timeStr);
 }
 
 /* MULTILINGUAL TRANSLATION ENGINE & SPEECH RECOGNITION */
@@ -284,13 +350,17 @@ function applyLanguageTranslations(lang) {
     renderTable();
 }
 
-function processVoiceCommand(command, lang) {
+function processVoiceCommand(command) {
     const stateFilter = document.getElementById("state-filter");
     const typeFilter = document.getElementById("type-filter");
 
     const matchedState = Object.keys(stateCoordinates).find(st => command.includes(st.toLowerCase()));
     if (matchedState && stateFilter) {
         stateFilter.value = matchedState;
+        const coords = stateCoordinates[matchedState];
+        if (coords && map) {
+            map.setView([coords.lat, coords.lng], coords.zoom);
+        }
     }
 
     if (command.includes("industrial")) {
@@ -365,9 +435,16 @@ function initializeAuthModal() {
     const modal = document.getElementById("auth-modal");
     const openBtn = document.getElementById("open-auth-btn");
     const closeBtn = document.getElementById("close-auth-btn");
+    const loginForm = document.getElementById("login-form");
 
     if (openBtn) openBtn.onclick = () => modal?.classList.add("open");
     if (closeBtn) closeBtn.onclick = () => modal?.classList.remove("open");
+
+    loginForm?.addEventListener("submit", (e) => {
+        e.preventDefault();
+        modal?.classList.remove("open");
+        showToast("Authenticated successfully. Welcome back!", "success");
+    });
 }
 
 /* LEAFLET GIS MAP ENGINE */
@@ -384,26 +461,28 @@ function initializeMap() {
     markersLayer = L.layerGroup().addTo(map);
 }
 
-/* FILTER EVENT LISTENERS */
+/* FILTER EVENT LISTENERS: PANS & FILTERS PER SELECTED STATE */
 function setupEventListeners() {
     const stateFilter = document.getElementById("state-filter");
     const typeFilter = document.getElementById("type-filter");
-    const minConf = document.getElementById("min-confidence");
+    const minConf = document.getElementById("confidence-filter");
     const searchInput = document.getElementById("search-input");
     const resetBtn = document.getElementById("reset-btn");
 
     stateFilter?.addEventListener("change", () => {
         const stateName = stateFilter.value;
-        if (stateCoordinates[stateName] && map) {
+        if (stateName && stateCoordinates[stateName] && map) {
             const coords = stateCoordinates[stateName];
             map.setView([coords.lat, coords.lng], coords.zoom);
+        } else if (map) {
+            map.setView([20.5937, 78.9629], 5);
         }
         applyFilters();
     });
 
     typeFilter?.addEventListener("change", applyFilters);
     minConf?.addEventListener("input", (e) => {
-        setText("confidence-val", `${e.target.value}%`);
+        setText("confidence-output", `${e.target.value}%`);
         applyFilters();
     });
     searchInput?.addEventListener("input", applyFilters);
@@ -413,7 +492,7 @@ function setupEventListeners() {
         if (typeFilter) typeFilter.value = "";
         if (minConf) {
             minConf.value = 0;
-            setText("confidence-val", "0%");
+            setText("confidence-output", "0%");
         }
         if (searchInput) searchInput.value = "";
         if (map) map.setView([20.5937, 78.9629], 5);
@@ -426,7 +505,7 @@ function setupEventListeners() {
 function applyFilters() {
     const state = document.getElementById("state-filter")?.value || "";
     const type = document.getElementById("type-filter")?.value || "";
-    const minConf = parseFloat(document.getElementById("min-confidence")?.value || 0);
+    const minConf = parseFloat(document.getElementById("confidence-filter")?.value || 0);
     const search = (document.getElementById("search-input")?.value || "").toLowerCase().trim();
 
     filteredEvents = allEvents.filter(e => {
@@ -445,6 +524,7 @@ function applyFilters() {
     renderMarkers();
     renderTable();
     updateAlerts();
+    updateNasaFirmsWidget();
 }
 
 /* DATA INGESTION ENGINE WITH ACCURATE STATE DEDUCTION */
@@ -508,7 +588,6 @@ async function loadDualCsvData() {
                 persistenceScore = Math.min(100, Math.round((activeDays / obsSpan) * 100));
             }
 
-            // Derive actual state accurately from latitude and longitude if missing
             const realState = (event.state && event.state !== "Unknown") 
                 ? event.state 
                 : getNearestState(lat, lng);
@@ -551,6 +630,7 @@ function processData(csvEvents) {
     renderMarkers();
     renderTable();
     updateAlerts();
+    updateNasaFirmsWidget();
 }
 
 /* RENDER & UI UPDATES */
@@ -749,7 +829,6 @@ function setupPredictionForm() {
     form?.addEventListener("submit", (e) => {
         e.preventDefault();
 
-        // Robust ID lookup resolving both naming strategies ('pred-lat' / 'latitude' and 'pred-lng' / 'longitude')
         const latInput = document.getElementById("pred-lat") || document.getElementById("latitude") || document.querySelector("input[name='latitude']");
         const lngInput = document.getElementById("pred-lng") || document.getElementById("longitude") || document.querySelector("input[name='longitude']");
         const stateSelect = document.getElementById("pred-state") || document.getElementById("state") || document.querySelector("select[name='state']");
@@ -759,13 +838,11 @@ function setupPredictionForm() {
         const lng = parseFloat(lngInput?.value);
         const frp = parseFloat(frpInput?.value || 15);
 
-        // Validation checking for real numerical inputs
         if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-            showToast("Please enter valid latitude and longitude.", "alert");
+            showDramaticBannerAlert("Please enter valid latitude and longitude coordinates.", "INVALID INPUT DATA");
             return;
         }
 
-        // Automatic State Resolver: Calculate actual state from lat/lng if dropdown is left unselected
         const derivedState = (stateSelect && stateSelect.value) ? stateSelect.value : getNearestState(lat, lng);
 
         const newEvent = {
@@ -783,13 +860,12 @@ function setupPredictionForm() {
         allEvents.unshift(newEvent);
         saveDatabase(allEvents);
         
-        // Dynamic map panning to new hotspot location
         if (map) {
             map.setView([lat, lng], 8);
         }
 
         applyFilters();
-        showToast(`New AI Event Created for ${derivedState}: ${newEvent.source_id}`, "success");
+        showDramaticBannerAlert(`New High-Priority Anomaly Created in ${derivedState}: ID ${newEvent.source_id}`, "NEW HOTSPOT LOGGED");
     });
 }
 
@@ -800,6 +876,6 @@ function setupNationalAuthorityAlerts() {
         const criticalCount = filteredEvents.filter(e => e.confidence >= ALERT_RULES.CRITICAL).length;
         const stateSelect = document.getElementById("state-filter");
         const currentState = stateSelect ? stateSelect.value : "National";
-        showToast(`Dispatched Urgent Incident Brief (${criticalCount} Critical Anomalies in ${currentState}) to NDMA Desk.`, "alert");
+        showDramaticBannerAlert(`Dispatched Urgent Incident Brief (${criticalCount} Critical Anomalies in ${currentState || 'National Jurisdiction'}) to NDMA Desk.`, "AUTHORITY DISPATCH SENT");
     });
 }
