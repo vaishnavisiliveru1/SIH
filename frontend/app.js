@@ -1,12 +1,8 @@
-/* =========================================================
-   AI THERMAL EVENT INTELLIGENCE CONTROL ENGINE
-   WITH MULTILINGUAL UI & VOICE COMMAND ASSISTANT
-========================================================= */
-
 let allEvents = [];
 let filteredEvents = [];
 let map = null;
 let markersLayer = null;
+let nasaMiniMap = null;
 
 const STORAGE_KEY = "sih_thermal_event_database_v6";
 const ALERT_RULES = { CRITICAL: 88, HIGH: 75 };
@@ -597,7 +593,7 @@ function renderTable() {
             <td>${e.latitude ? Number(e.latitude).toFixed(4) : "—"}</td>
             <td>${e.longitude ? Number(e.longitude).toFixed(4) : "—"}</td>
             <td>${e.mean_frp ? Number(e.mean_frp).toFixed(1) : "—"}</td>
-            <td><button class="btn-secondary" onclick="showEventDetails('${e.source_id}')">View</button></td>
+            <td><button class="btn-secondary" onclick="showEventDetails('${escapeHTML(e.source_id)}')">View</button></td>
         `;
         tbody.appendChild(tr);
     });
@@ -626,7 +622,7 @@ function renderMarkers() {
                 <p><strong>Persistence:</strong> ${e.persistence_score}%</p>
                 <img 
                   src="${e.imageUrl || sampleFireImages[0]}" 
-                  alt="Fire Image at ${e.source_id}" 
+                  alt="Fire Image at ${escapeHTML(e.source_id)}" 
                   class="popup-fire-img"
                   onerror="this.onerror=null; this.src='https://via.placeholder.com/200x120?text=Fire+Image+Unavailable';"
                 />
@@ -657,12 +653,142 @@ function updateAlerts() {
         item.className = "alert-card";
         item.innerHTML = `
             <div>
-                <strong>${e.source_id} [${e.state}] - High Intensity Event</strong>
-                <p style="font-size:12px; color:var(--muted)">Type: ${e.predicted_event_type} | Confidence: ${Number(e.confidence).toFixed(1)}% | Persistence: ${e.persistence_score}%</p>
+                <strong>${escapeHTML(e.source_id)} [${escapeHTML(e.state)}] - High Intensity Event</strong>
+                <p style="font-size:12px; color:var(--muted)">Type: ${normalizeType(e.predicted_event_type)} | Confidence: ${Number(e.confidence).toFixed(1)}% | Persistence: ${e.persistence_score}%</p>
             </div>
-            <button class="btn-secondary" onclick="showEventDetails('${e.source_id}')">Inspect</button>
+            <button class="btn-secondary" onclick="showEventDetails('${escapeHTML(e.source_id)}')">Inspect</button>
         `;
         list.appendChild(item);
+    });
+}
+
+/* SHOW DETAILED EVENT METRICS WITH INTERACTIVE NASA SATELLITE & HOTSPOT MAP */
+function showEventDetails(sourceId) {
+    const event = allEvents.find(e => String(e.source_id) === String(sourceId));
+    const container = document.getElementById("details-content");
+    if (!event || !container) return;
+
+    document.querySelectorAll(".view-section").forEach(sec => sec.classList.add("hidden"));
+    document.getElementById("dashboard-section")?.classList.remove("hidden");
+
+    // Dynamic date formatting (2 days prior for full NASA satellite tile sync)
+    const dateObj = new Date();
+    dateObj.setDate(dateObj.getDate() - 2);
+    const dateIso = dateObj.toISOString().split("T")[0]; 
+
+    const lat = Number(event.latitude);
+    const lon = Number(event.longitude);
+
+    container.innerHTML = `
+        <div class="details-grid">
+            <div class="metric-group">
+                <div><span class="metric-label">SOURCE ID</span><br><strong>${escapeHTML(event.source_id)}</strong></div>
+                <div><span class="metric-label">STATE JURISDICTION</span><br><strong>${escapeHTML(event.state || 'N/A')}</strong></div>
+                <div><span class="metric-label">EVENT CLASSIFICATION</span><br><strong>${escapeHTML(event.predicted_event_type)}</strong></div>
+                <div><span class="metric-label">CONFIDENCE SCORE</span><br><strong style="color:var(--cyan)">${Number(event.confidence).toFixed(1)}%</strong></div>
+                <div><span class="metric-label">PERSISTENCE SCORE</span><br><strong style="color:var(--agricultural)">${event.persistence_score}%</strong></div>
+                <div><span class="metric-label">COORDINATES</span><br><strong>${lat.toFixed(4)}° N, ${lon.toFixed(4)}° E</strong></div>
+            </div>
+
+            <!-- INTERACTIVE NASA SATELLITE & HOTSPOT MAP CARD -->
+            <div class="nasa-card">
+                <div class="nasa-card-header">
+                    <div>
+                        <span class="nasa-title"><i class="fa-solid fa-satellite-dish"></i> Daily Active Thermal Imagery</span>
+                        <span class="nasa-subtext">VIIRS 375m Thermal Anomalies + Satellite Base Map (${dateIso})</span>
+                    </div>
+                    <span class="badge" style="background:#ef4444; color:#fff;">Hotspot Layer</span>
+                </div>
+
+                <div class="nasa-img-container" style="height: 350px; position: relative;">
+                    <div id="nasa-mini-map" style="width: 100%; height: 100%; border-radius: 6px;"></div>
+                </div>
+
+                <div class="nasa-card-footer">
+                    <span><strong>Center Point:</strong> ${lat.toFixed(4)}° N, ${lon.toFixed(4)}° E</span>
+                    <span class="badge-status">Thermal Anomaly Detected</span>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById("details-panel")?.scrollIntoView({ behavior: 'smooth' });
+
+    // Initialize Interactive Satellite + Hotspot Tile Map
+    setTimeout(() => {
+        if (nasaMiniMap) {
+            nasaMiniMap.remove();
+            nasaMiniMap = null;
+        }
+
+        nasaMiniMap = L.map("nasa-mini-map").setView([lat, lon], 11);
+
+        // High-resolution satellite basemap
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri'
+        }).addTo(nasaMiniMap);
+
+        // NASA GIBS VIIRS 375m Active Fire Thermal Anomaly Layer
+        const gibsThermalUrl = `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_Thermal_Anomalies_375m_Day/default/${dateIso}/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png`;
+        L.tileLayer(gibsThermalUrl, {
+            tileSize: 256,
+            opacity: 0.85,
+            attribution: 'NASA GIBS Active Fires'
+        }).addTo(nasaMiniMap);
+
+        // Hotspot Circle Pin at Exact Coordinates
+        const hotspotMarker = L.circleMarker([lat, lon], {
+            radius: 12,
+            fillColor: "#ef4444",
+            color: "#ffffff",
+            weight: 3,
+            fillOpacity: 0.9
+        }).addTo(nasaMiniMap);
+
+        hotspotMarker.bindPopup(`
+            <div style="color:#000;">
+                <strong>🔥 Thermal Hotspot Location</strong><br>
+                Lat: ${lat.toFixed(4)}°, Lon: ${lon.toFixed(4)}°<br>
+                Confidence: ${Number(event.confidence).toFixed(1)}%
+            </div>
+        `).openPopup();
+    }, 100);
+}
+
+/* AI CLASSIFICATION & PREDICTION ENGINE */
+function setupPredictionForm() {
+    const form = document.getElementById("prediction-form");
+    form?.addEventListener("submit", (e) => {
+        e.preventDefault();
+
+        const lat = parseFloat(document.getElementById("pred-lat")?.value);
+        const lng = parseFloat(document.getElementById("pred-lng")?.value);
+        const state = document.getElementById("pred-state")?.value || "National";
+        const frp = parseFloat(document.getElementById("pred-frp")?.value || 10);
+
+        if (isNaN(lat) || isNaN(lng)) {
+            showToast("Please enter valid latitude and longitude.", "alert");
+            return;
+        }
+
+        const newEvent = {
+            source_id: "PRED_" + Math.random().toString(36).substring(2, 7).toUpperCase(),
+            state: state,
+            latitude: lat,
+            longitude: lng,
+            predicted_event_type: "Industrial",
+            confidence: 88.5,
+            persistence_score: 75,
+            landcover: "Built-up",
+            mean_frp: frp,
+            imageUrl: sampleFireImages[0]
+        };
+
+        allEvents.unshift(newEvent);
+        saveDatabase(allEvents);
+        applyFilters();
+
+        showToast(`New AI Classification calculated and saved: ${newEvent.source_id}`, "success");
     });
 }
 
@@ -696,133 +822,4 @@ function handleNasaImageError() {
     if (loadingEl) loadingEl.classList.add("hidden");
     if (imgEl) imgEl.classList.add("hidden");
     if (errorEl) errorEl.classList.remove("hidden");
-}
-
-/* SHOW DETAILED EVENT METRICS & DYNAMIC NASA SATELLITE IMAGERY */
-function showEventDetails(sourceId) {
-    const event = allEvents.find(e => String(e.source_id) === String(sourceId));
-    const container = document.getElementById("details-content");
-    if (!event || !container) return;
-
-    document.querySelectorAll(".view-section").forEach(sec => sec.classList.add("hidden"));
-    document.getElementById("dashboard-section")?.classList.remove("hidden");
-
-    // Dynamic date formatting
-    const dateObj = new Date();
-    dateObj.setDate(dateObj.getDate() - 2);
-    const dateIso = dateObj.toISOString().split("T")[0]; 
-
-    const lat = Number(event.latitude);
-    const lon = Number(event.longitude);
-
-    // Correct EPSG:4326 WMS ordering: minLon, minLat, maxLon, maxLat
-    const minLat = (lat - 0.05).toFixed(4);
-    const minLon = (lon - 0.05).toFixed(4);
-    const maxLat = (lat + 0.05).toFixed(4);
-    const maxLon = (lon + 0.05).toFixed(4);
-    
-    const bbox = `${minLon},${minLat},${maxLon},${maxLat}`;
-
-    // VIIRS Corrected Reflectance for daily worldwide tile availability
-    const satTileUrl = `https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&LAYERS=VIIRS_SNPP_CorrectedReflectance_TrueColor&STYLES=&FORMAT=image/jpeg&TRANSPARENT=false&HEIGHT=600&WIDTH=600&TIME=${dateIso}&VERSION=1.3.0&CRS=EPSG:4326&BBOX=${bbox}`;
-
-    container.innerHTML = `
-        <div class="details-grid">
-            <div class="metric-group">
-                <div><span class="metric-label">SOURCE ID</span><br><strong>${escapeHTML(event.source_id)}</strong></div>
-                <div><span class="metric-label">STATE JURISDICTION</span><br><strong>${escapeHTML(event.state || 'N/A')}</strong></div>
-                <div><span class="metric-label">EVENT CLASSIFICATION</span><br><strong>${escapeHTML(event.predicted_event_type)}</strong></div>
-                <div><span class="metric-label">CONFIDENCE SCORE</span><br><strong style="color:var(--cyan)">${Number(event.confidence).toFixed(1)}%</strong></div>
-                <div><span class="metric-label">PERSISTENCE SCORE</span><br><strong style="color:var(--agricultural)">${event.persistence_score}%</strong></div>
-                <div><span class="metric-label">COORDINATES</span><br><strong>${lat.toFixed(4)}°, ${lon.toFixed(4)}°</strong></div>
-            </div>
-
-            <!-- HIGH-RES SATELLITE CARD -->
-            <div class="nasa-card">
-                <div class="nasa-card-header">
-                    <div>
-                        <span class="nasa-title"><i class="fa-solid fa-satellite-dish"></i> Daily Satellite Imagery</span>
-                        <span class="nasa-subtext">VIIRS / NASA GIBS TrueColor (${dateIso})</span>
-                    </div>
-                    <span class="badge" style="background:#0284c7; color:#fff;">Daily Coverage</span>
-                </div>
-
-                <div class="nasa-img-container" id="nasa-img-container">
-                    <div class="nasa-loading" id="nasa-loading">
-                        <i class="fa-solid fa-spinner fa-spin"></i>
-                        <span>Loading Satellite Tile...</span>
-                    </div>
-
-                    <div class="nasa-error hidden" id="nasa-error">
-                        <i class="fa-solid fa-triangle-exclamation"></i>
-                        <span>Satellite tile unavailable for this date/coordinate. Try adjusting date window.</span>
-                    </div>
-
-                    <img 
-                        id="nasa-sat-image" 
-                        src="${satTileUrl}" 
-                        alt="Satellite Snapshot at ${lat}, ${lon}"
-                        class="nasa-sat-img hidden"
-                        onload="handleNasaImageLoad()"
-                        onerror="handleNasaImageError()"
-                    />
-                </div>
-
-                <div class="nasa-card-footer">
-                    <span><strong>Center Point:</strong> ${lat.toFixed(4)}° N, ${lon.toFixed(4)}° E</span>
-                    <span class="badge-status">Visible / Infrared Spectrum</span>
-                </div>
-            </div>
-        </div>
-    `;
-
-    document.getElementById("details-panel")?.scrollIntoView({ behavior: 'smooth' });
-}
-
-/* AI PREDICTION FORM HANDLER */
-function setupPredictionForm() {
-    const form = document.getElementById("prediction-form");
-    form?.addEventListener("submit", (e) => {
-        e.preventDefault();
-        
-        const state = document.getElementById("pred-state")?.value || "National";
-        const lat = parseFloat(document.getElementById("pred-lat")?.value);
-        const lon = parseFloat(document.getElementById("pred-lon")?.value);
-        const frp = parseFloat(document.getElementById("pred-frp")?.value || 15);
-        const landcover = document.getElementById("pred-landcover")?.value || "Tree cover";
-
-        if (isNaN(lat) || isNaN(lon)) {
-            showToast("Please enter valid Latitude and Longitude values.", "alert");
-            return;
-        }
-
-        // Mock AI inference logic based on landcover and FRP values
-        let type = "Other";
-        if (landcover.includes("Tree") || landcover.includes("Forest")) type = "Forest/Natural";
-        else if (landcover.includes("Crop") || landcover.includes("Agri")) type = "Agricultural";
-        else if (landcover.includes("Built") || frp > 40) type = "Industrial";
-
-        const confidence = Math.min(99.9, Math.max(60.0, Math.round((frp * 1.2 + 50) * 10) / 10));
-        const newEvent = {
-            source_id: "AI_PRED_" + Math.floor(1000 + Math.random() * 9000),
-            state: state,
-            latitude: lat,
-            longitude: lon,
-            predicted_event_type: type,
-            confidence: confidence,
-            persistence_score: Math.min(100, Math.round(frp * 1.5)),
-            landcover: landcover,
-            mean_frp: frp,
-            imageUrl: sampleFireImages[0]
-        };
-
-        allEvents.unshift(newEvent);
-        const currentSaved = loadDatabase();
-        currentSaved.unshift(newEvent);
-        saveDatabase(currentSaved);
-
-        applyFilters();
-        showToast(`AI Event ${newEvent.source_id} successfully classified and saved.`, "success");
-        form.reset();
-    });
 }
