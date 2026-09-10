@@ -554,30 +554,98 @@ function setupNationalAuthorityAlerts() {
     });
 }
 
+/* SHOW DETAILED EVENT METRICS & DYNAMIC NASA SATELLITE IMAGERY */
 function showEventDetails(sourceId) {
     const event = allEvents.find(e => String(e.source_id) === String(sourceId));
     const container = document.getElementById("details-content");
     if (!event || !container) return;
 
+    // Ensure Dashboard section is visible
     document.querySelectorAll(".view-section").forEach(sec => sec.classList.add("hidden"));
     document.getElementById("dashboard-section")?.classList.remove("hidden");
 
+    // Dynamic Date Calculation: Fetch imagery from yesterday to ensure tile availability
+    const dateObj = new Date();
+    dateObj.setDate(dateObj.getDate() - 1);
+    const dateIso = dateObj.toISOString().split("T")[0]; // Format: YYYY-MM-DD
+
+    // Calculate ~0.15 degree Bounding Box around source coordinates
+    const lat = Number(event.latitude);
+    const lon = Number(event.longitude);
+    const bbox = `${lat - 0.08},${lon - 0.08},${lat + 0.08},${lon + 0.08}`;
+
+    // Construct NASA GIBS WMS Satellite Imagery URL (VIIRS True Color)
+    const nasaSatelliteUrl = `https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&LAYERS=VIIRS_SNPP_CorrectedReflectance_TrueColor&STYLES=&FORMAT=image/jpeg&TRANSPARENT=false&HEIGHT=500&WIDTH=600&TIME=${dateIso}&CRS=EPSG:4326&BBOX=${bbox}`;
+
     container.innerHTML = `
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-            <div><span style="color:var(--muted); font-size:12px;">SOURCE ID</span><br><strong>${escapeHTML(event.source_id)}</strong></div>
-            <div><span style="color:var(--muted); font-size:12px;">STATE JURISDICTION</span><br><strong>${escapeHTML(event.state)}</strong></div>
-            <div><span style="color:var(--muted); font-size:12px;">EVENT CLASSIFICATION</span><br><strong>${escapeHTML(event.predicted_event_type)}</strong></div>
-            <div><span style="color:var(--muted); font-size:12px;">CONFIDENCE SCORE</span><br><strong style="color:var(--cyan)">${Number(event.confidence).toFixed(1)}%</strong></div>
-            <div><span style="color:var(--muted); font-size:12px;">PERSISTENCE SCORE</span><br><strong style="color:var(--agricultural)">${event.persistence_score}%</strong></div>
-            <div><span style="color:var(--muted); font-size:12px;">LATITUDE / LONGITUDE</span><br><strong>${event.latitude}, ${event.longitude}</strong></div>
-        </div>
-        <div style="margin-top: 15px;">
-            <span style="color:var(--muted); font-size:12px;">THERMAL DETECTION SNAPSHOT</span><br>
-            <img src="${event.imageUrl || sampleFireImages[0]}" alt="Thermal Fire Snapshot" style="width:100%; max-width:350px; height:auto; margin-top:8px; border-radius:6px;" />
+        <div class="details-grid">
+            <div class="metric-group">
+                <div><span class="metric-label">SOURCE ID</span><br><strong>${escapeHTML(event.source_id)}</strong></div>
+                <div><span class="metric-label">STATE JURISDICTION</span><br><strong>${escapeHTML(event.state || 'N/A')}</strong></div>
+                <div><span class="metric-label">EVENT CLASSIFICATION</span><br><strong>${escapeHTML(event.predicted_event_type)}</strong></div>
+                <div><span class="metric-label">CONFIDENCE SCORE</span><br><strong style="color:var(--cyan)">${Number(event.confidence).toFixed(1)}%</strong></div>
+                <div><span class="metric-label">PERSISTENCE SCORE</span><br><strong style="color:var(--agricultural)">${event.persistence_score}%</strong></div>
+                <div><span class="metric-label">COORDINATES</span><br><strong>${lat.toFixed(4)}°, ${lon.toFixed(4)}°</strong></div>
+            </div>
+
+            <!-- NASA SATELLITE IMAGERY CARD -->
+            <div class="nasa-card">
+                <div class="nasa-card-header">
+                    <div>
+                        <span class="nasa-title"><i class="fa-solid fa-satellite"></i> NASA Satellite Imagery</span>
+                        <span class="nasa-subtext">Latest available imagery (${dateIso})</span>
+                    </div>
+                    <span class="badge" style="font-size:10px;">EPSG:4326</span>
+                </div>
+
+                <div class="nasa-img-container" id="nasa-img-container">
+                    <!-- LOADING STATE -->
+                    <div class="nasa-loading" id="nasa-loading">
+                        <i class="fa-solid fa-spinner fa-spin"></i>
+                        <span>Loading NASA Worldview Tile...</span>
+                    </div>
+
+                    <!-- ERROR STATE -->
+                    <div class="nasa-error hidden" id="nasa-error">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span>Satellite imagery temporarily unavailable for this region/date.</span>
+                    </div>
+
+                    <!-- IMAGERY ELEMENT -->
+                    <img 
+                        id="nasa-sat-image" 
+                        src="${nasaSatelliteUrl}" 
+                        alt="NASA GIBS Satellite Snapshot at ${lat}, ${lon}"
+                        class="nasa-sat-img hidden"
+                        onload="handleNasaImageLoad()"
+                        onerror="handleNasaImageError()"
+                    />
+                </div>
+
+                <div class="nasa-card-footer">
+                    <span><strong>Coordinates:</strong> ${lat.toFixed(4)} N, ${lon.toFixed(4)} E</span>
+                    <span class="badge-status">True-Color (VIIRS / SNPP)</span>
+                </div>
+            </div>
         </div>
     `;
 
     document.getElementById("details-panel")?.scrollIntoView({ behavior: 'smooth' });
+}
+
+/* NASA SATELLITE IMAGERY EVENT HANDLERS */
+function handleNasaImageLoad() {
+    const loadingEl = document.getElementById("nasa-loading");
+    const imgEl = document.getElementById("nasa-sat-image");
+    if (loadingEl) loadingEl.classList.add("hidden");
+    if (imgEl) imgEl.classList.remove("hidden");
+}
+
+function handleNasaImageError() {
+    const loadingEl = document.getElementById("nasa-loading");
+    const errorEl = document.getElementById("nasa-error");
+    if (loadingEl) loadingEl.classList.add("hidden");
+    if (errorEl) errorEl.classList.remove("hidden");
 }
 
 /* AI PREDICTION FORM */
