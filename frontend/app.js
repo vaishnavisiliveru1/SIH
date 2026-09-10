@@ -7,7 +7,7 @@ let nasaMiniMap = null;
 const STORAGE_KEY = "sih_thermal_event_database_v6";
 const ALERT_RULES = { CRITICAL: 88, HIGH: 75 };
 
-// Comprehensive list of all Indian States and Union Territories with map view coordinates
+// Comprehensive list of all Indian States and Union Territories with accurate central map bounds
 const stateCoordinates = {
     "Andhra Pradesh": { lat: 15.9129, lng: 79.7400, zoom: 7 },
     "Arunachal Pradesh": { lat: 28.2180, lng: 94.7278, zoom: 7 },
@@ -47,13 +47,14 @@ const stateCoordinates = {
     "Puducherry": { lat: 11.9416, lng: 79.8083, zoom: 10 }
 };
 
-// Default embedded fallback dataset
+// Default fallback dataset with correct state-to-coordinate mapping
 const defaultFallbackEvents = [
     { source_id: "SOURCE_0001", state: "Odisha", latitude: 20.7957, longitude: 85.2547, predicted_event_type: "Industrial", confidence: 92.4, persistence_score: 85, landcover: "Built-up", mean_frp: 35.4 },
     { source_id: "SOURCE_0002", state: "Jharkhand", latitude: 23.6102, longitude: 85.2799, predicted_event_type: "Forest/Natural", confidence: 89.1, persistence_score: 72, landcover: "Tree cover", mean_frp: 18.2 },
     { source_id: "SOURCE_0003", state: "Chhattisgarh", latitude: 21.2787, longitude: 81.8661, predicted_event_type: "Agricultural", confidence: 78.5, persistence_score: 45, landcover: "Cropland", mean_frp: 12.0 },
     { source_id: "SOURCE_0004", state: "Maharashtra", latitude: 19.7515, longitude: 75.7139, predicted_event_type: "Industrial", confidence: 94.0, persistence_score: 91, landcover: "Built-up", mean_frp: 52.1 },
-    { source_id: "SOURCE_0005", state: "Karnataka", latitude: 15.3173, longitude: 75.7139, predicted_event_type: "Other", confidence: 64.2, persistence_score: 30, landcover: "Grassland", mean_frp: 8.5 }
+    { source_id: "SOURCE_0005", state: "Karnataka", latitude: 15.3173, longitude: 75.7139, predicted_event_type: "Other", confidence: 64.2, persistence_score: 30, landcover: "Grassland", mean_frp: 8.5 },
+    { source_id: "SOURCE_0006", state: "Andhra Pradesh", latitude: 15.9129, longitude: 79.7400, predicted_event_type: "Agricultural", confidence: 81.0, persistence_score: 60, landcover: "Cropland", mean_frp: 19.8 }
 ];
 
 /* DICTIONARY FOR MULTILINGUAL UI TRANSLATION */
@@ -69,42 +70,6 @@ const uiTranslations = {
         lblPredictBtn: "PREDICT & SAVE EVENT", lblAlertsHeading: "Thermal Event Alerts", lblDispatchBtn: "Dispatch National Authority Alert", lblDbHeading: "Detected Thermal Sources Registry",
         voicePrompt: "Press Voice Control and say a command (e.g. 'Show Odisha', 'Filter Industrial')...",
         micLabel: "Voice Control", listening: "Listening..."
-    },
-    "hi-IN": {
-        appHeading: "एआई थर्मल इवेंट इंटेलिजेंस",
-        appSubheading: "नासा फर्म्स • ओएसएम • उपग्रह मल्टी-मॉडल पहचान",
-        sysOnline: "सिस्टम ऑनलाइन",
-        navDash: "डैशबोर्ड", navMap: "भू-स्थानिक मानचित्र", navPredict: "एआई भविष्यवाणियां", navAlerts: "चेतावनी केंद्र", navDb: "इवेंट डेटाबेस", navLogin: "लॉगिन / रजिस्टर",
-        lblTotalSources: "कुल थर्मल स्रोत", lblIndFires: "औद्योगिक आग", lblForestFires: "वन / प्राकृतिक", lblAgriFires: "कृषि आग", lblOtherFires: "अन्य / अज्ञात",
-        lblSelectState: "क्षेत्रीय राज्य चुनें", lblEventType: "इवेंट का प्रकार", lblMinConf: "न्यूनतम विश्वास स्कोर (%)", lblLandcover: "भूमि कवर श्रेणी", lblSearchId: "आईडी / क्षेत्र खोजें",
-        lblResetBtn: "फ़िल्टर रीसेट करें", lblMapHeading: "स्थानिक वितरण और सक्रिय हॉटस्पॉट", lblPredictHeading: "एआई वर्गीकरण और थर्मल स्थायित्व विश्लेषण",
-        lblPredictBtn: "पूर्वानुमान और सहेजें", lblAlertsHeading: "थर्मल चेतावनी केंद्र", lblDispatchBtn: "राष्ट्रीय प्राधिकरण चेतावनी भेजें", lblDbHeading: "पहचाने गए थर्मल स्रोतों की सूची",
-        voicePrompt: "वॉयस कंट्रोल दबाएं और आदेश दें (जैसे 'ओडिशा दिखाएं', 'इंडस्ट्रियल फ़िल्टर करें')...",
-        micLabel: "वॉयस कंट्रोल", listening: "सुन रहा है..."
-    },
-    "ta-IN": {
-        appHeading: "AI வெப்ப நிகழ்வு நுண்ணறிவு",
-        appSubheading: "நாசா நிறுவனங்கள் • OSM • செயற்கைக்கோள் கண்டறிதல்",
-        sysOnline: "சிஸ்டம் ஆன்லைன்",
-        navDash: "டாஷ்போர்டு", navMap: "வரைபடம்", navPredict: "AI கணிப்பு", navAlerts: "எச்சரிக்கை மையம்", navDb: "தரவுத்தளம்", navLogin: "உள்நுழைவு",
-        lblTotalSources: "மொத்த வெப்ப ஆதாரங்கள்", lblIndFires: "தொழில்துறை தீ", lblForestFires: "காடு / இயற்கை", lblAgriFires: "விவசாய தீ", lblOtherFires: "மற்றவை",
-        lblSelectState: "மாநிலத்தைத் தேர்ந்தெடுக்கவும்", lblEventType: "நிகழ்வு வகை", lblMinConf: "குறைந்தபட்ச நம்பகத்தன்மை (%)", lblLandcover: "நிலப்பரப்பு", lblSearchId: "தேடல் ID",
-        lblResetBtn: "மீட்டமை", lblMapHeading: "வெப்பப் பகுதிகள் வரைபடம்", lblPredictHeading: "AI பகுப்பாய்வு",
-        lblPredictBtn: "கணித்து சேமிக்கவும்", lblAlertsHeading: "வெப்ப எச்சரிக்கைகள்", lblDispatchBtn: "தேசிய அதிகாரிகளுக்கு அனுப்பு", lblDbHeading: "பதிவு செய்யப்பட்ட விவரங்கள்",
-        voicePrompt: "குரல் கட்டுப்பாட்டை அழுத்தி கட்டளையிடவும்...",
-        micLabel: "குரல் கட்டுப்பாடு", listening: "கேட்கிறது..."
-    },
-    "te-IN": {
-        appHeading: "AI థర్మల్ ఈవెంట్ ఇంటెలిజెన్స్",
-        appSubheading: "నాసా ఫిర్మ్స్ • OSM • ఉపగ్రహ మల్టీ-మోడల్ డిటెక్షన్",
-        sysOnline: "సిస్టమ్ ఆన్‌లైన్",
-        navDash: "డాష్‌బోర్డ్", navMap: "జియోస్పేషియల్ మ్యాప్", navPredict: "AI ప్రిడిక్టర్", navAlerts: "అలర్ట్స్ సెంటర్", navDb: "ఈవент డేటాబేస్", navLogin: "లాగిన్ / రిజిస్టర్",
-        lblTotalSources: "మొత్తం థర్మల్ మూలాలు", lblIndFires: "పారిశ్రామిక మంటలు", lblForestFires: "అడవి / సహజ స్థలాలు", lblAgriFires: "వ్యవసాయ మంటలు", lblOtherFires: "ఇతర / తెలియనివి",
-        lblSelectState: "రాష్ట్రాన్ని ఎంచుకోండి", lblEventType: "ఈవెంట్ రకం", lblMinConf: "కనీస విశ్వసనీయత (%)", lblLandcover: "ల్యాండ్‌కవర్ రకం", lblSearchId: "శోధన ID",
-        lblResetBtn: "ఫిల్టర్లు రీసెట్ చేయండి", lblMapHeading: "స్పేషియల్ డిస్ట్రిబ్యూషన్ & హాట్‌స్పాట్‌లు", lblPredictHeading: "AI వర్గీకరణ విశ్లేషణ",
-        lblPredictBtn: "అంచనా వేసి సేవ్ చేయండి", lblAlertsHeading: "థర్మల్ హెచ్చరికలు", lblDispatchBtn: "అధికారులకు హెచ్చరిక పంపండి", lblDbHeading: "నమోదిత థర్మల్ మూలాలు",
-        voicePrompt: "వాయిస్ కంట్రోల్ నొక్కి ఆదేశం ఇవ్వండి...",
-        micLabel: "వాయిస్ కంట్రోల్", listening: "వింటోంది..."
     }
 };
 
@@ -125,7 +90,7 @@ document.addEventListener("DOMContentLoaded", function () {
 /* POPULATE STATE SELECT DROPDOWNS DYNAMICALLY */
 function populateStateDropdowns() {
     const stateFilter = document.getElementById("state-filter");
-    const predState = document.getElementById("pred-state");
+    const predState = document.getElementById("pred-state") || document.getElementById("state");
     const stateList = Object.keys(stateCoordinates).sort();
 
     if (stateFilter) {
@@ -168,7 +133,7 @@ function setText(id, text) {
 function normalizeType(type) {
     if (!type) return "Other";
     const str = String(type).trim().toLowerCase();
-    if (str.includes("industrial") || str.includes("flare") || str.includes("plant")) return "Industrial";
+    if (str.includes("industrial") || str.includes("flare") || str.includes("plant") || str.includes("mine")) return "Industrial";
     if (str.includes("forest") || str.includes("wildfire") || str.includes("natural") || str.includes("tree")) return "Forest/Natural";
     if (str.includes("agri") || str.includes("crop") || str.includes("farm") || str.includes("burn")) return "Agricultural";
     return "Other";
@@ -201,6 +166,28 @@ function showToast(message, type = "info") {
         toast.style.opacity = "0";
         setTimeout(() => toast.remove(), 300);
     }, 3500);
+}
+
+// Distance-based lookup to find the closest real Indian state based on Lat/Lng coordinates
+function getNearestState(lat, lng) {
+    let closestState = "National";
+    let minDistance = Infinity;
+
+    for (const [state, coords] of Object.entries(stateCoordinates)) {
+        const dLat = (lat - coords.lat) * (Math.PI / 180);
+        const dLng = (lng - coords.lng) * (Math.PI / 180);
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.cos(lat * (Math.PI / 180)) * Math.cos(coords.lat * (Math.PI / 180)) *
+                  Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const distance = 6371 * c;
+
+        if (distance < minDistance) {
+            minDistance = distance;
+            closestState = state;
+        }
+    }
+    return closestState;
 }
 
 function saveDatabase(data) {
@@ -304,29 +291,18 @@ function processVoiceCommand(command, lang) {
     const matchedState = Object.keys(stateCoordinates).find(st => command.includes(st.toLowerCase()));
     if (matchedState && stateFilter) {
         stateFilter.value = matchedState;
-        speakResponse(`Filtering dashboard for ${matchedState}`, lang);
     }
 
-    if (command.includes("industrial") || command.includes("इंडस्ट्रियल") || command.includes("தொழில்துறை")) {
+    if (command.includes("industrial")) {
         if (typeFilter) typeFilter.value = "Industrial";
-    } else if (command.includes("forest") || command.includes("जंगल") || command.includes("காடு")) {
+    } else if (command.includes("forest")) {
         if (typeFilter) typeFilter.value = "Forest/Natural";
-    } else if (command.includes("reset") || command.includes("रीसेट") || command.includes("மீட்டமை")) {
+    } else if (command.includes("reset")) {
         document.getElementById("reset-btn")?.click();
-        speakResponse("Filters reset", lang);
         return;
     }
 
     applyFilters();
-}
-
-function speakResponse(text, lang) {
-    if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = lang;
-        window.speechSynthesis.speak(utterance);
-    }
 }
 
 /* DARK / LIGHT THEME TOGGLE */
@@ -347,7 +323,7 @@ function initializeThemeToggle() {
     });
 }
 
-/* SIDEBAR AND SEPARATE VIEW NAVIGATION */
+/* SIDEBAR AND NAVIGATION */
 function initializeSidebarAndNavigation() {
     const sidebar = document.getElementById("sidebar");
     const toggleBtn = document.getElementById("sidebar-toggle");
@@ -384,39 +360,14 @@ function initializeSidebarAndNavigation() {
     });
 }
 
-/* AUTHENTICATION MODAL & GOOGLE OAUTH */
+/* AUTHENTICATION MODAL */
 function initializeAuthModal() {
     const modal = document.getElementById("auth-modal");
     const openBtn = document.getElementById("open-auth-btn");
     const closeBtn = document.getElementById("close-auth-btn");
-    const tabLogin = document.getElementById("tab-login");
-    const tabRegister = document.getElementById("tab-register");
-    const loginForm = document.getElementById("login-form");
-    const registerForm = document.getElementById("register-form");
-    const googleBtn = document.getElementById("google-auth-btn");
 
     if (openBtn) openBtn.onclick = () => modal?.classList.add("open");
     if (closeBtn) closeBtn.onclick = () => modal?.classList.remove("open");
-
-    if (tabLogin && tabRegister) {
-        tabLogin.onclick = () => {
-            tabLogin.classList.add("active");
-            tabRegister.classList.remove("active");
-            loginForm?.classList.remove("hidden");
-            registerForm?.classList.add("hidden");
-        };
-        tabRegister.onclick = () => {
-            tabRegister.classList.add("active");
-            tabLogin.classList.remove("active");
-            registerForm?.classList.remove("hidden");
-            loginForm?.classList.add("hidden");
-        };
-    }
-
-    googleBtn?.addEventListener("click", () => {
-        showToast("Authenticated via Google OAuth", "success");
-        modal?.classList.remove("open");
-    });
 }
 
 /* LEAFLET GIS MAP ENGINE */
@@ -496,7 +447,7 @@ function applyFilters() {
     updateAlerts();
 }
 
-/* DATA INGESTION ENGINE WITH STATE MAPPING */
+/* DATA INGESTION ENGINE WITH ACCURATE STATE DEDUCTION */
 function parseCSVFile(path) {
     return new Promise((resolve, reject) => {
         if (typeof Papa === "undefined") {
@@ -533,7 +484,6 @@ async function loadDualCsvData() {
     }
 
     let mergedEvents = [];
-    const statesList = Object.keys(stateCoordinates);
 
     if (eventData.length > 0) {
         const persMap = new Map();
@@ -541,10 +491,12 @@ async function loadDualCsvData() {
             if (p.source_id) persMap.set(String(p.source_id).trim(), p);
         });
 
-        mergedEvents = eventData.map((event, idx) => {
+        mergedEvents = eventData.map((event) => {
             const sid = String(event.source_id || "").trim();
             const persRecord = persMap.get(sid) || {};
             const confidence = parseFloat(event.confidence_pct) || 75.0;
+            const lat = parseFloat(event.latitude);
+            const lng = parseFloat(event.longitude);
 
             let persistenceScore = 0;
             if (persRecord.persistence_score !== undefined && persRecord.persistence_score !== null) {
@@ -556,11 +508,16 @@ async function loadDualCsvData() {
                 persistenceScore = Math.min(100, Math.round((activeDays / obsSpan) * 100));
             }
 
+            // Derive actual state accurately from latitude and longitude if missing
+            const realState = (event.state && event.state !== "Unknown") 
+                ? event.state 
+                : getNearestState(lat, lng);
+
             return {
                 source_id: sid || "EVENT_" + Math.random().toString(36).substring(2, 7),
-                state: event.state || statesList[idx % statesList.length],
-                latitude: parseFloat(event.latitude),
-                longitude: parseFloat(event.longitude),
+                state: realState,
+                latitude: lat,
+                longitude: lng,
                 predicted_event_type: event.predicted_event_type || event.event_type || "Other",
                 confidence: confidence,
                 persistence_score: persistenceScore,
@@ -653,7 +610,6 @@ function renderMarkers() {
             fillOpacity: 0.85
         });
         
-        // Popup without any image element
         const popupContent = `
             <div class="popup-container">
                 <h4 style="margin:0 0 8px 0; color:#ef4444; font-size:15px; font-weight:700;">🔥 ${escapeHTML(e.source_id)}</h4>
@@ -699,7 +655,7 @@ function updateAlerts() {
     });
 }
 
-/* SHOW DETAILED EVENT METRICS WITH INTERACTIVE NASA SATELLITE & HOTSPOT MAP */
+/* SHOW DETAILED EVENT METRICS */
 function showEventDetails(sourceId) {
     const event = allEvents.find(e => String(e.source_id) === String(sourceId));
     const container = document.getElementById("details-content");
@@ -708,7 +664,6 @@ function showEventDetails(sourceId) {
     document.querySelectorAll(".view-section").forEach(sec => sec.classList.add("hidden"));
     document.getElementById("dashboard-section")?.classList.remove("hidden");
 
-    // Dynamic date formatting (2 days prior for full NASA satellite tile sync)
     const dateObj = new Date();
     dateObj.setDate(dateObj.getDate() - 2);
     const dateIso = dateObj.toISOString().split("T")[0]; 
@@ -727,7 +682,6 @@ function showEventDetails(sourceId) {
                 <div><span class="metric-label">COORDINATES</span><br><strong>${lat.toFixed(4)}° N, ${lon.toFixed(4)}° E</strong></div>
             </div>
 
-            <!-- INTERACTIVE NASA SATELLITE & HOTSPOT MAP CARD -->
             <div class="nasa-card">
                 <div class="nasa-card-header">
                     <div>
@@ -751,7 +705,6 @@ function showEventDetails(sourceId) {
 
     document.getElementById("details-panel")?.scrollIntoView({ behavior: 'smooth' });
 
-    // Initialize Interactive Satellite + Hotspot Tile Map
     setTimeout(() => {
         if (nasaMiniMap) {
             nasaMiniMap.remove();
@@ -760,12 +713,10 @@ function showEventDetails(sourceId) {
 
         nasaMiniMap = L.map("nasa-mini-map").setView([lat, lon], 11);
 
-        // High-resolution satellite basemap
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             attribution: 'Tiles &copy; Esri'
         }).addTo(nasaMiniMap);
 
-        // NASA GIBS VIIRS 375m Active Fire Thermal Anomaly Layer
         const gibsThermalUrl = `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_Thermal_Anomalies_375m_Day/default/${dateIso}/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png`;
         L.tileLayer(gibsThermalUrl, {
             tileSize: 256,
@@ -773,7 +724,6 @@ function showEventDetails(sourceId) {
             attribution: 'NASA GIBS Active Fires'
         }).addTo(nasaMiniMap);
 
-        // Hotspot Circle Pin at Exact Coordinates
         const hotspotMarker = L.circleMarker([lat, lon], {
             radius: 12,
             fillColor: "#ef4444",
@@ -792,25 +742,35 @@ function showEventDetails(sourceId) {
     }, 100);
 }
 
-/* AI CLASSIFICATION & PREDICTION ENGINE */
+/* FIXED AI CLASSIFICATION & PREDICTION FORM HANDLER */
 function setupPredictionForm() {
-    const form = document.getElementById("prediction-form");
+    const form = document.getElementById("prediction-form") || document.querySelector("form");
+    
     form?.addEventListener("submit", (e) => {
         e.preventDefault();
 
-        const lat = parseFloat(document.getElementById("pred-lat")?.value);
-        const lng = parseFloat(document.getElementById("pred-lng")?.value);
-        const state = document.getElementById("pred-state")?.value || "National";
-        const frp = parseFloat(document.getElementById("pred-frp")?.value || 10);
+        // Robust ID lookup resolving both naming strategies ('pred-lat' / 'latitude' and 'pred-lng' / 'longitude')
+        const latInput = document.getElementById("pred-lat") || document.getElementById("latitude") || document.querySelector("input[name='latitude']");
+        const lngInput = document.getElementById("pred-lng") || document.getElementById("longitude") || document.querySelector("input[name='longitude']");
+        const stateSelect = document.getElementById("pred-state") || document.getElementById("state") || document.querySelector("select[name='state']");
+        const frpInput = document.getElementById("pred-frp") || document.getElementById("mean_frp") || document.querySelector("input[name='mean_frp']");
 
-        if (isNaN(lat) || isNaN(lng)) {
+        const lat = parseFloat(latInput?.value);
+        const lng = parseFloat(lngInput?.value);
+        const frp = parseFloat(frpInput?.value || 15);
+
+        // Validation checking for real numerical inputs
+        if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
             showToast("Please enter valid latitude and longitude.", "alert");
             return;
         }
 
+        // Automatic State Resolver: Calculate actual state from lat/lng if dropdown is left unselected
+        const derivedState = (stateSelect && stateSelect.value) ? stateSelect.value : getNearestState(lat, lng);
+
         const newEvent = {
             source_id: "PRED_" + Math.random().toString(36).substring(2, 7).toUpperCase(),
-            state: state,
+            state: derivedState,
             latitude: lat,
             longitude: lng,
             predicted_event_type: "Industrial",
@@ -822,9 +782,14 @@ function setupPredictionForm() {
 
         allEvents.unshift(newEvent);
         saveDatabase(allEvents);
-        applyFilters();
+        
+        // Dynamic map panning to new hotspot location
+        if (map) {
+            map.setView([lat, lng], 8);
+        }
 
-        showToast(`New AI Classification calculated and saved: ${newEvent.source_id}`, "success");
+        applyFilters();
+        showToast(`New AI Event Created for ${derivedState}: ${newEvent.source_id}`, "success");
     });
 }
 
