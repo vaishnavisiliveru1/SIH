@@ -214,21 +214,21 @@
                     <form id="prediction-form" class="prediction-content">
                         <div class="input-grid">
                             <div class="input-group-custom">
-                                <label for="pred-state">State / Union Territory</label>
+                                <label for="pred-state" id="lbl-pred-state-label">State / Union Territory</label>
                                 <select id="pred-state">
                                     <option value="">Select State / UT</option>
                                 </select>
                             </div>
                             <div class="input-group-custom">
-                                <label for="latitude">Latitude</label>
+                                <label for="latitude" id="lbl-latitude-label">Latitude</label>
                                 <input type="number" step="any" id="latitude" placeholder="e.g. 20.7957" required>
                             </div>
                             <div class="input-group-custom">
-                                <label for="longitude">Longitude</label>
+                                <label for="longitude" id="lbl-longitude-label">Longitude</label>
                                 <input type="number" step="any" id="longitude" placeholder="e.g. 85.2547" required>
                             </div>
                             <div class="input-group-custom">
-                                <label for="mean_frp">Mean FRP (MW)</label>
+                                <label for="mean_frp" id="lbl-mean-frp-label">Mean FRP (MW)</label>
                                 <input type="number" step="any" id="mean_frp" placeholder="e.g. 15.4" required>
                             </div>
                         </div>
@@ -288,15 +288,15 @@
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Source ID</th>
-                                    <th>State</th>
-                                    <th>Type</th>
-                                    <th>Confidence</th>
-                                    <th>Persistence</th>
-                                    <th>Latitude</th>
-                                    <th>Longitude</th>
-                                    <th>Mean FRP</th>
-                                    <th>Action</th>
+                                    <th id="th-source-id">Source ID</th>
+                                    <th id="th-state">State</th>
+                                    <th id="th-type">Type</th>
+                                    <th id="th-confidence">Confidence</th>
+                                    <th id="th-persistence">Persistence</th>
+                                    <th id="th-lat">Latitude</th>
+                                    <th id="th-lng">Longitude</th>
+                                    <th id="th-frp">Mean FRP</th>
+                                    <th id="th-action">Action</th>
                                 </tr>
                             </thead>
                             <tbody id="table-body"></tbody>

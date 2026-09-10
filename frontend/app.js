@@ -57,7 +57,7 @@ const defaultFallbackEvents = [
     { source_id: "SOURCE_0006", state: "Andhra Pradesh", latitude: 15.9129, longitude: 79.7400, predicted_event_type: "Agricultural", confidence: 81.0, persistence_score: 60, landcover: "Cropland", mean_frp: 19.8 }
 ];
 
-/* DICTIONARY FOR MULTILINGUAL UI TRANSLATION */
+/* COMPREHENSIVE DICTIONARY FOR MULTILINGUAL UI TRANSLATION */
 const uiTranslations = {
     "en-US": {
         appHeading: "AI THERMAL EVENT INTELLIGENCE",
@@ -69,7 +69,55 @@ const uiTranslations = {
         lblResetBtn: "Reset Filters", lblMapHeading: "Spatial Distribution & Active Hotspots", lblPredictHeading: "Run AI Classification & Thermal Persistence Analysis",
         lblPredictBtn: "PREDICT & SAVE EVENT", lblAlertsHeading: "Thermal Event Alerts", lblDispatchBtn: "Dispatch National Authority Alert", lblDbHeading: "Detected Thermal Sources Registry",
         voicePrompt: "Press Voice Control and say a command (e.g. 'Show Odisha', 'Filter Industrial')...",
-        micLabel: "Voice Control", listening: "Listening..."
+        micLabel: "Voice Control", listening: "Listening...",
+        allStates: "All States & UTs", optAllTypes: "All Event Types", optIndustrial: "Industrial", optForest: "Forest/Natural", optAgricultural: "Agricultural", optOther: "Other",
+        lblPredState: "State / Union Territory", lblLatitude: "Latitude", lblLongitude: "Longitude", lblMeanFrp: "Mean FRP (MW)",
+        thSourceId: "Source ID", thState: "State", thType: "Type", thConfidence: "Confidence", thPersistence: "Persistence", thLat: "Latitude", thLng: "Longitude", thFrp: "Mean FRP", thAction: "Action"
+    },
+    "hi-IN": {
+        appHeading: "एआई थर्मल इवेंट इंटेलिजेंस",
+        appSubheading: "नासा फर्म्स • ओएसएम • उपग्रह बहु-मोड पहचान",
+        sysOnline: "सिस्टम ऑनलाइन",
+        navDash: "डैशबोर्ड", navMap: "भू-स्थानिक मानचित्र", navPredict: "एआई भविष्यवकता", navAlerts: "अलर्ट केंद्र", navDb: "इवेंट डेटाबेस", navLogin: "लॉगिन / रजिस्टर",
+        lblTotalSources: "कुल थर्मल स्रोत", lblIndFires: "औद्योगिक आग", lblForestFires: "वन / प्राकृतिक आग", lblAgriFires: "कृषि आग", lblOtherFires: "अन्य / अज्ञात",
+        lblSelectState: "क्षेत्र / राज्य चुनें", lblEventType: "इवेंट का प्रकार", lblMinConf: "न्यूनतम विश्वास स्कोर (%)", lblLandcover: "भूमि आवरण वर्ग", lblSearchId: "आईडी / क्षेत्र खोजें",
+        lblResetBtn: "फ़िल्टर रीसेट करें", lblMapHeading: "स्थानिक वितरण और सक्रिय हॉटस्पॉट", lblPredictHeading: "एआई वर्गीकरण और थर्मल निरंतरता विश्लेषण चलाएं",
+        lblPredictBtn: "पूर्वानुमान और इवेंट सहेजें", lblAlertsHeading: "थर्मल इवेंट अलर्ट", lblDispatchBtn: "राष्ट्रीय प्राधिकरण अलर्ट भेजें", lblDbHeading: "पहचाने गए थर्मल स्रोतों की रजिस्ट्री",
+        voicePrompt: "वॉयस कंट्रोल दबाएं और एक कमांड बोलें (उदा. 'Show Odisha', 'Filter Industrial')...",
+        micLabel: "वॉयस कंट्रोल", listening: "सुन रहा हूँ...",
+        allStates: "सभी राज्य और केंद्र शासित प्रदेश", optAllTypes: "सभी इवेंट प्रकार", optIndustrial: "औद्योगिक", optForest: "वन / प्राकृतिक", optAgricultural: "कृषि", optOther: "अन्य",
+        lblPredState: "राज्य / केंद्र शासित प्रदेश", lblLatitude: "अक्षांश (Latitude)", lblLongitude: "रेखांश (Longitude)", lblMeanFrp: "औसत एफआरपी (MW)",
+        thSourceId: "स्रोत आईडी", thState: "राज्य", thType: "प्रकार", thConfidence: "विश्वास", thPersistence: "निरंतरता", thLat: "अक्षांश", thLng: "रेखांश", thFrp: "औसत एफआरपी", thAction: "कार्रवाई"
+    },
+    "ta-IN": {
+        appHeading: "செயற்கை நுண்ணறிவு வெப்ப நிகழ்வு கண்காணிப்பு",
+        appSubheading: "நாசா FIRMS • OSM • செயற்கைக்கோள் பல மாதிரி கண்டறிதல்",
+        sysOnline: "கணினி இயங்குகிறது",
+        navDash: "முகப்பு", navMap: "புவிசார் வரைபடம்", navPredict: "AI கணிப்பு", navAlerts: "எச்சரிக்கை மையம்", navDb: "நிகழ்வு தரவுத்தளம்", navLogin: "உள்நுழைவு / பதிவு",
+        lblTotalSources: "மொத்த வெப்ப ஆதாரங்கள்", lblIndFires: "தொழில்துறை தீ", lblForestFires: "காடு / இயற்கை தீ", lblAgriFires: "விவசாய தீ", lblOtherFires: "மற்றவை / தெரியாதவை",
+        lblSelectState: "மாநிலத்தைத் தேர்ந்தெடுக்கவும்", lblEventType: "நிகழ்வு வகை", lblMinConf: "குறைந்தபட்ச நம்பிக்கை மதிப்பு (%)", lblLandcover: "நிலப்பரப்பு வகை", lblSearchId: "தேடல் ஐடி / பகுதி",
+        lblResetBtn: "வடிகட்டிகளை மீட்டமை", lblMapHeading: "இடஞ்சார்ந்த விநியோகம் மற்றும் செயலில் உள்ள ஹாட்ஸ்பாட்கள்", lblPredictHeading: "AI வகைப்பாடு & வெப்ப தொடர்ச்சி பகுப்பாய்வு",
+        lblPredictBtn: "கணித்து சேமிக்கவும்", lblAlertsHeading: "வெப்ப நிகழ்வு எச்சரிக்கைகள்", lblDispatchBtn: "தேசிய அதிகாரசபை எச்சரிக்கை அனுப்பு", lblDbHeading: "கண்டறியப்பட்ட வெப்ப ஆதாரங்கள் பதிவு",
+        voicePrompt: "குரல் கட்டுப்பாட்டை அழுத்தி கட்டளையைக் கூறவும் (எ.கா. 'Show Odisha', 'Filter Industrial')...",
+        micLabel: "குரல் கட்டுப்பாடு", listening: "கேட்கிறது...",
+        allStates: "அனைத்து மாநிலங்கள் & केंद्रப்பகுதிகள்", optAllTypes: "அனைத்து நிகழ்வு வகைகள்", optIndustrial: "தொழில்துறை", optForest: "காடு/இயற்கை", optAgricultural: "விவசாயம்", optOther: "மற்றவை",
+        lblPredState: "மாநிலம் / யூனியன் பிரதேசம்", lblLatitude: "அட்சரேகை", lblLongitude: "தீர்க்கரேகை", lblMeanFrp: "சராசரி FRP (MW)",
+        thSourceId: "ஆதார ஐடி", thState: "மாநிலம்", thType: "வகை", thConfidence: "நம்பிக்கை", thPersistence: "தொடர்ச்சி", thLat: "அட்சரேகை", thLng: "தீர்க்கரேகை", thFrp: "சராசரி FRP", thAction: "செயல்பாடு"
+    },
+    "te-IN": {
+        appHeading: "AI థర్మల్ ఈవెంట్ ఇంటెలిజెన్స్",
+        appSubheading: "నాసా FIRMS • OSM • శాటిలైట్ మల్టీ-మోడల్ డిటెక్షన్",
+        sysOnline: "సిస్టమ్ ఆన్‌లైన్",
+        navDash: "డాష్‌బోర్డ్", navMap: "జియోస్పేషియల్ మ్యాప్", navPredict: "AI ప్రిడిక్టర్", navAlerts: "అలర్ట్స్ సెంటర్", navDb: "ఈవెంట్ డేటాబేస్", navLogin: "లాగిన్ / రిజిస్టర్",
+        lblTotalSources: "మొత్తం థర్మల్ మూలాలు", lblIndFires: "పారిశ్రామిక మంటలు", lblForestFires: "అటవీ / సహజ మంటలు", lblAgriFires: "వ్యవసాయ మంటలు", lblOtherFires: "ఇతర / తెలియనివి",
+        lblSelectState: "రాష్ట్రాన్ని ఎంచుకోండి", lblEventType: "ఈవెంట్ రకం", lblMinConf: "కనీస నమ్మక స్కోరు (%)", lblLandcover: "భూమి కవర్ వర్గం", lblSearchId: "శోధన ID / ప్రాంతం",
+        lblResetBtn: "ఫిల్టర్‌లను రీసెట్ చేయండి", lblMapHeading: "స్థానిక పంపిణీ & యాక్టివ్ హాట్‌స్పాట్‌లు", lblPredictHeading: "AI వర్గీకరణ & థర్మల్ నిలకడ విశ్లేషణను నడపండి",
+        lblPredictBtn: "అంచనా వేసి సేవ్ చేయండి", lblAlertsHeading: "థర్మల్ ఈవెంట్ హెచ్చరికలు", lblDispatchBtn: "జాతీయ అధికార హెచ్చరికను పంపండి", lblDbHeading: "గుర్తించబడిన థర్మల్ మూలాల రిజిస్ట్రీ",
+        voicePrompt: "వాయిస్ కంట్రోల్ నొక్కి ఒక కమాండ్ చెప్పండి (ఉదా. 'Show Odisha', 'Filter Industrial')...",
+        micLabel: "వాయిస్ కంట్రోల్", listening: "వింటోంది...",
+        allStates: "అన్ని రాష్ట్రాలు & కేంద్రపాలిత ప్రాంతాలు", optAllTypes: "అన్ని ఈవెంట్ రకాలు", optIndustrial: "పారిశ్రామిక", optForest: "అటవీ/సహజ", optAgricultural: "వ్యవసాయ", optOther: "ఇతర",
+        lblPredState: "రాష్ట్రం / కేంద్రపాలిత ప్రాంతం", lblLatitude: "అక్షాంశం", lblLongitude: "రేఖాంశం", lblMeanFrp: "సగటు FRP (MW)",
+        thSourceId: "సోర్స్ ID", thState: "రాష్ట్రం", thType: "రకం", thConfidence: "నమ్మకం", thPersistence: "నిలకడ", thLat: "అక్షాంశం", thLng: "రేఖాంశం", thFrp: "సగటు FRP", thAction: "చర్య"
     }
 };
 
@@ -89,7 +137,6 @@ document.addEventListener("DOMContentLoaded", function () {
     startLiveNasaWidget();
 });
 
-/* APP LAUNCHER: PRE-LOADS ALL STATES AND UTs & SHOWS STARTUP OVERLAY */
 function initAppLauncher() {
     const authModal = document.getElementById("auth-modal");
     if (authModal) {
@@ -97,14 +144,17 @@ function initAppLauncher() {
     }
 }
 
-/* POPULATE STATE SELECT DROPDOWNS DYNAMICALLY WITH ALL 28 STATES & UTs */
 function populateStateDropdowns() {
     const stateFilter = document.getElementById("state-filter");
     const predState = document.getElementById("pred-state") || document.getElementById("state");
     const stateList = Object.keys(stateCoordinates).sort();
 
+    const currentLang = document.getElementById("language-select")?.value || "en-US";
+    const defaultText = uiTranslations[currentLang]?.allStates || "All States & UTs";
+    const defaultPredText = uiTranslations[currentLang]?.lblPredState || "Select State / UT";
+
     if (stateFilter) {
-        stateFilter.innerHTML = `<option value="">All States & UTs</option>`;
+        stateFilter.innerHTML = `<option value="">${defaultText}</option>`;
         stateList.forEach(st => {
             const opt = document.createElement("option");
             opt.value = st;
@@ -114,7 +164,7 @@ function populateStateDropdowns() {
     }
 
     if (predState) {
-        predState.innerHTML = `<option value="">Select State / UT</option>`;
+        predState.innerHTML = `<option value="">${defaultPredText}</option>`;
         stateList.forEach(st => {
             const opt = document.createElement("option");
             opt.value = st;
@@ -124,7 +174,6 @@ function populateStateDropdowns() {
     }
 }
 
-/* HELPER UTILITIES */
 function escapeHTML(str) {
     if (!str) return '';
     return String(str)
@@ -137,7 +186,7 @@ function escapeHTML(str) {
 
 function setText(id, text) {
     const el = document.getElementById(id);
-    if (el) el.textContent = text;
+    if (el && text !== undefined) el.textContent = text;
 }
 
 function normalizeType(type) {
@@ -158,7 +207,6 @@ function getEventColor(type) {
     }
 }
 
-/* DRAMATIC BOLD RED ALERT BANNER NOTIFICATION */
 function showDramaticBannerAlert(message, title = "CRITICAL THERMAL ANOMALY DETECTED") {
     let alertBanner = document.getElementById("dramatic-alert-banner");
     if (!alertBanner) {
@@ -256,7 +304,6 @@ function loadDatabase() {
     }
 }
 
-/* LIVE DYNAMIC NASA FIRMS STATUS WIDGET */
 function startLiveNasaWidget() {
     updateNasaFirmsWidget();
     setInterval(updateNasaFirmsWidget, 10000);
@@ -304,7 +351,7 @@ function initializeMultilingualAndVoice() {
             const currentLang = langSelect?.value || "en-US";
             if (transcriptText) transcriptText.textContent = `"${command}"`;
 
-            processVoiceCommand(command, currentLang);
+            processVoiceCommand(command);
         };
 
         recognition.onerror = () => micBtn?.classList.remove("listening");
@@ -347,6 +394,42 @@ function applyLanguageTranslations(lang) {
     setText("transcript-text", t.voicePrompt);
     setText("mic-label", t.micLabel);
 
+    setText("lbl-pred-state-label", t.lblPredState);
+    setText("lbl-latitude-label", t.lblLatitude);
+    setText("lbl-longitude-label", t.lblLongitude);
+    setText("lbl-mean-frp-label", t.lblMeanFrp);
+
+    setText("th-source-id", t.thSourceId);
+    setText("th-state", t.thState);
+    setText("th-type", t.thType);
+    setText("th-confidence", t.thConfidence);
+    setText("th-persistence", t.thPersistence);
+    setText("th-lat", t.thLat);
+    setText("th-lng", t.thLng);
+    setText("th-frp", t.thFrp);
+    setText("th-action", t.thAction);
+
+    const typeFilter = document.getElementById("type-filter");
+    if (typeFilter) {
+        const val = typeFilter.value;
+        typeFilter.options[0].text = t.optAllTypes;
+        typeFilter.options[1].text = t.optIndustrial;
+        typeFilter.options[2].text = t.optForest;
+        typeFilter.options[3].text = t.optAgricultural;
+        typeFilter.options[4].text = t.optOther;
+        typeFilter.value = val;
+    }
+
+    const stateFilter = document.getElementById("state-filter");
+    if (stateFilter && stateFilter.options.length > 0) {
+        stateFilter.options[0].text = t.allStates;
+    }
+
+    const predState = document.getElementById("pred-state");
+    if (predState && predState.options.length > 0) {
+        predState.options[0].text = t.lblPredState;
+    }
+
     renderTable();
 }
 
@@ -375,7 +458,6 @@ function processVoiceCommand(command) {
     applyFilters();
 }
 
-/* DARK / LIGHT THEME TOGGLE */
 function initializeThemeToggle() {
     const themeBtn = document.getElementById("theme-toggle");
     const themeIcon = document.getElementById("theme-icon");
@@ -393,7 +475,6 @@ function initializeThemeToggle() {
     });
 }
 
-/* SIDEBAR AND NAVIGATION */
 function initializeSidebarAndNavigation() {
     const sidebar = document.getElementById("sidebar");
     const toggleBtn = document.getElementById("sidebar-toggle");
@@ -430,7 +511,6 @@ function initializeSidebarAndNavigation() {
     });
 }
 
-/* AUTHENTICATION MODAL */
 function initializeAuthModal() {
     const modal = document.getElementById("auth-modal");
     const openBtn = document.getElementById("open-auth-btn");
@@ -447,7 +527,6 @@ function initializeAuthModal() {
     });
 }
 
-/* LEAFLET GIS MAP ENGINE */
 function initializeMap() {
     const mapElement = document.getElementById("map");
     if (!mapElement) return;
@@ -461,7 +540,6 @@ function initializeMap() {
     markersLayer = L.layerGroup().addTo(map);
 }
 
-/* FILTER EVENT LISTENERS: PANS & FILTERS PER SELECTED STATE */
 function setupEventListeners() {
     const stateFilter = document.getElementById("state-filter");
     const typeFilter = document.getElementById("type-filter");
@@ -527,7 +605,6 @@ function applyFilters() {
     updateNasaFirmsWidget();
 }
 
-/* DATA INGESTION ENGINE WITH ACCURATE STATE DEDUCTION */
 function parseCSVFile(path) {
     return new Promise((resolve, reject) => {
         if (typeof Papa === "undefined") {
@@ -633,7 +710,6 @@ function processData(csvEvents) {
     updateNasaFirmsWidget();
 }
 
-/* RENDER & UI UPDATES */
 function updateDashboard() {
     const industrial = filteredEvents.filter(e => normalizeType(e.predicted_event_type) === "Industrial").length;
     const forest = filteredEvents.filter(e => normalizeType(e.predicted_event_type) === "Forest/Natural").length;
@@ -735,7 +811,6 @@ function updateAlerts() {
     });
 }
 
-/* SHOW DETAILED EVENT METRICS */
 function showEventDetails(sourceId) {
     const event = allEvents.find(e => String(e.source_id) === String(sourceId));
     const container = document.getElementById("details-content");
@@ -822,7 +897,6 @@ function showEventDetails(sourceId) {
     }, 100);
 }
 
-/* FIXED AI CLASSIFICATION & PREDICTION FORM HANDLER */
 function setupPredictionForm() {
     const form = document.getElementById("prediction-form") || document.querySelector("form");
     
@@ -869,7 +943,6 @@ function setupPredictionForm() {
     });
 }
 
-/* NATIONAL AUTHORITY ALERT DISPATCHER */
 function setupNationalAuthorityAlerts() {
     const btn = document.getElementById("send-national-alert-btn");
     btn?.addEventListener("click", () => {
