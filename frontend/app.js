@@ -759,48 +759,66 @@ function showEventDetails(sourceId) {
 
     document.getElementById("details-panel")?.scrollIntoView({ behavior: 'smooth' });
 }
+
+/* HELPER HANDLERS FOR SATELLITE IMAGE LOADING STATES */
+function handleNasaImageLoad() {
+    const loading = document.getElementById("nasa-loading");
+    const img = document.getElementById("nasa-sat-image");
+    if (loading) loading.classList.add("hidden");
+    if (img) img.classList.remove("hidden");
+}
+
+function handleNasaImageError() {
+    const loading = document.getElementById("nasa-loading");
+    const error = document.getElementById("nasa-error");
+    if (loading) loading.classList.add("hidden");
+    if (error) error.classList.remove("hidden");
+}
+
 /* AI PREDICTION FORM HANDLER */
 function setupPredictionForm() {
     const form = document.getElementById("prediction-form");
-    if (!form) return;
-
-    form.addEventListener("submit", function (e) {
+    form?.addEventListener("submit", (e) => {
         e.preventDefault();
+        
+        const state = document.getElementById("pred-state")?.value || "National";
+        const lat = parseFloat(document.getElementById("pred-lat")?.value);
+        const lon = parseFloat(document.getElementById("pred-lon")?.value);
+        const frp = parseFloat(document.getElementById("pred-frp")?.value || 15);
+        const landcover = document.getElementById("pred-landcover")?.value || "Tree cover";
 
-        const activeDays = Number(document.getElementById("active_days")?.value) || 0;
-        const obsSpan = Math.max(1, Number(document.getElementById("observation_span")?.value) || 1);
-        const calculatedPersistence = Math.min(100, Math.round((activeDays / obsSpan) * 100));
+        if (isNaN(lat) || isNaN(lon)) {
+            showToast("Please enter valid Latitude and Longitude values.", "alert");
+            return;
+        }
 
-        const stateVal = document.getElementById("pred_state")?.value || "National";
-        const typeVal = document.getElementById("pred_type")?.value || "Industrial";
-        const confVal = parseFloat(document.getElementById("pred_confidence")?.value) || 85.0;
-        const latVal = parseFloat(document.getElementById("pred_lat")?.value) || 20.5937;
-        const lonVal = parseFloat(document.getElementById("pred_lon")?.value) || 78.9629;
+        // Mock AI inference logic based on landcover and FRP values
+        let type = "Other";
+        if (landcover.includes("Tree") || landcover.includes("Forest")) type = "Forest/Natural";
+        else if (landcover.includes("Crop") || landcover.includes("Agri")) type = "Agricultural";
+        else if (landcover.includes("Built") || frp > 40) type = "Industrial";
 
+        const confidence = Math.min(99.9, Math.max(60.0, Math.round((frp * 1.2 + 50) * 10) / 10));
         const newEvent = {
-            source_id: "PRED_" + Math.random().toString(36).substring(2, 7).toUpperCase(),
-            state: stateVal,
-            latitude: latVal,
-            longitude: lonVal,
-            predicted_event_type: typeVal,
-            confidence: confVal,
-            persistence_score: calculatedPersistence,
-            landcover: "User Specified",
-            mean_frp: 25.0,
+            source_id: "AI_PRED_" + Math.floor(1000 + Math.random() * 9000),
+            state: state,
+            latitude: lat,
+            longitude: lon,
+            predicted_event_type: type,
+            confidence: confidence,
+            persistence_score: Math.min(100, Math.round(frp * 1.5)),
+            landcover: landcover,
+            mean_frp: frp,
             imageUrl: sampleFireImages[0]
         };
 
         allEvents.unshift(newEvent);
-        
-        // Save user entry into local storage
-        const userDb = loadDatabase();
-        userDb.unshift(newEvent);
-        saveDatabase(userDb);
+        const currentSaved = loadDatabase();
+        currentSaved.unshift(newEvent);
+        saveDatabase(currentSaved);
 
         applyFilters();
+        showToast(`AI Event ${newEvent.source_id} successfully classified and saved.`, "success");
         form.reset();
-
-        showToast(`Event ${newEvent.source_id} predicted and registered into database!`, "success");
-        showEventDetails(newEvent.source_id);
     });
 }
