@@ -101,19 +101,87 @@ document.addEventListener("DOMContentLoaded", function () {
     loadDualCsvData();
 });
 
+/* HELPER UTILITIES */
+function escapeHTML(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function setText(id, text) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+}
+
+function normalizeType(type) {
+    if (!type) return "Other";
+    const str = String(type).trim().toLowerCase();
+    if (str.includes("industrial") || str.includes("flare") || str.includes("plant")) return "Industrial";
+    if (str.includes("forest") || str.includes("wildfire") || str.includes("natural") || str.includes("tree")) return "Forest/Natural";
+    if (str.includes("agri") || str.includes("crop") || str.includes("farm") || str.includes("burn")) return "Agricultural";
+    return "Other";
+}
+
+function getEventColor(type) {
+    switch (normalizeType(type)) {
+        case "Industrial": return "#f43f5e";
+        case "Forest/Natural": return "#22c55e";
+        case "Agricultural": return "#10b981";
+        default: return "#22d3ee";
+    }
+}
+
+function showToast(message, type = "info") {
+    let toastContainer = document.getElementById("toast-container");
+    if (!toastContainer) {
+        toastContainer = document.createElement("div");
+        toastContainer.id = "toast-container";
+        toastContainer.style.cssText = "position:fixed; bottom:20px; right:20px; z-index:9999; display:flex; flex-direction:column; gap:8px;";
+        document.body.appendChild(toastContainer);
+    }
+
+    const toast = document.createElement("div");
+    toast.style.cssText = `background:${type === 'alert' ? '#f43f5e' : type === 'success' ? '#10b981' : '#1e293b'}; color:#fff; padding:12px 18px; border-radius:8px; border:1px solid #334155; font-size:13px; font-weight:600; box-shadow:0 4px 12px rgba(0,0,0,0.3); transition:all 0.3s ease;`;
+    toast.textContent = message;
+    toastContainer.appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.opacity = "0";
+        setTimeout(() => toast.remove(), 300);
+    }, 3500);
+}
+
+function saveDatabase(data) {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch (e) {
+        console.error("Failed to save to local database storage", e);
+    }
+}
+
+function loadDatabase() {
+    try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+        return [];
+    }
+}
+
 /* MULTILINGUAL TRANSLATION ENGINE & SPEECH RECOGNITION */
 function initializeMultilingualAndVoice() {
     const langSelect = document.getElementById("language-select");
     const micBtn = document.getElementById("mic-btn");
     const transcriptText = document.getElementById("transcript-text");
 
-    // Dynamic UI Translation Change
     langSelect?.addEventListener("change", (e) => {
-        const lang = e.target.value;
-        applyLanguageTranslations(lang);
+        applyLanguageTranslations(e.target.value);
     });
 
-    // Voice Command Speech Recognition
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
         const recognition = new SpeechRecognition();
@@ -121,18 +189,18 @@ function initializeMultilingualAndVoice() {
         recognition.interimResults = false;
 
         micBtn?.addEventListener("click", () => {
-            const currentLang = langSelect.value;
+            const currentLang = langSelect?.value || "en-US";
             recognition.lang = currentLang;
             recognition.start();
             
             micBtn.classList.add("listening");
-            document.getElementById("mic-label").textContent = uiTranslations[currentLang]?.listening || "Listening...";
+            setText("mic-label", uiTranslations[currentLang]?.listening || "Listening...");
         });
 
         recognition.onresult = (event) => {
-            micBtn.classList.remove("listening");
+            micBtn?.classList.remove("listening");
             const command = event.results[0][0].transcript.toLowerCase();
-            const currentLang = langSelect.value;
+            const currentLang = langSelect?.value || "en-US";
             if (transcriptText) transcriptText.textContent = `"${command}"`;
 
             processVoiceCommand(command, currentLang);
@@ -141,13 +209,11 @@ function initializeMultilingualAndVoice() {
         recognition.onerror = () => micBtn?.classList.remove("listening");
         recognition.onend = () => {
             micBtn?.classList.remove("listening");
-            const micLabel = document.getElementById("mic-label");
-            if (micLabel) micLabel.textContent = uiTranslations[langSelect.value]?.micLabel || "Voice Control";
+            setText("mic-label", uiTranslations[langSelect?.value || "en-US"]?.micLabel || "Voice Control");
         };
     }
 }
 
-/* APPLY UI TEXT TRANSLATIONS */
 function applyLanguageTranslations(lang) {
     const t = uiTranslations[lang] || uiTranslations["en-US"];
     
@@ -180,15 +246,13 @@ function applyLanguageTranslations(lang) {
     setText("transcript-text", t.voicePrompt);
     setText("mic-label", t.micLabel);
 
-    renderTable(); // Refresh table text
+    renderTable();
 }
 
-/* PROCESS VOICE COMMAND INTENTS */
 function processVoiceCommand(command, lang) {
     const stateFilter = document.getElementById("state-filter");
     const typeFilter = document.getElementById("type-filter");
 
-    // State Command Handling
     if (command.includes("odisha") || command.includes("ओडिशा") || command.includes("ஒடிசா")) {
         if (stateFilter) stateFilter.value = "Odisha";
         speakResponse("Filtering dashboard for Odisha", lang);
@@ -206,7 +270,6 @@ function processVoiceCommand(command, lang) {
         speakResponse("Filtering dashboard for Karnataka", lang);
     }
 
-    // Category Command Handling
     if (command.includes("industrial") || command.includes("इंडस्ट्रियल") || command.includes("தொழில்துறை")) {
         if (typeFilter) typeFilter.value = "Industrial";
     } else if (command.includes("forest") || command.includes("जंगल") || command.includes("காடு")) {
@@ -333,6 +396,69 @@ function initializeMap() {
     markersLayer = L.layerGroup().addTo(map);
 }
 
+/* FILTER EVENT LISTENERS */
+function setupEventListeners() {
+    const stateFilter = document.getElementById("state-filter");
+    const typeFilter = document.getElementById("type-filter");
+    const minConf = document.getElementById("min-confidence");
+    const searchInput = document.getElementById("search-input");
+    const resetBtn = document.getElementById("reset-btn");
+
+    stateFilter?.addEventListener("change", () => {
+        const stateName = stateFilter.value;
+        if (stateCoordinates[stateName] && map) {
+            const coords = stateCoordinates[stateName];
+            map.setView([coords.lat, coords.lng], coords.zoom);
+        }
+        applyFilters();
+    });
+
+    typeFilter?.addEventListener("change", applyFilters);
+    minConf?.addEventListener("input", (e) => {
+        setText("confidence-val", `${e.target.value}%`);
+        applyFilters();
+    });
+    searchInput?.addEventListener("input", applyFilters);
+
+    resetBtn?.addEventListener("click", () => {
+        if (stateFilter) stateFilter.value = "";
+        if (typeFilter) typeFilter.value = "";
+        if (minConf) {
+            minConf.value = 0;
+            setText("confidence-val", "0%");
+        }
+        if (searchInput) searchInput.value = "";
+        if (map) map.setView([20.5937, 78.9629], 5);
+        
+        applyFilters();
+        showToast("Filters reset to default", "info");
+    });
+}
+
+function applyFilters() {
+    const state = document.getElementById("state-filter")?.value || "";
+    const type = document.getElementById("type-filter")?.value || "";
+    const minConf = parseFloat(document.getElementById("min-confidence")?.value || 0);
+    const search = (document.getElementById("search-input")?.value || "").toLowerCase().trim();
+
+    filteredEvents = allEvents.filter(e => {
+        const matchState = !state || String(e.state).toLowerCase() === state.toLowerCase();
+        const matchType = !type || normalizeType(e.predicted_event_type) === normalizeType(type);
+        const matchConf = (parseFloat(e.confidence) || 0) >= minConf;
+        const matchSearch = !search || 
+            String(e.source_id).toLowerCase().includes(search) || 
+            String(e.state).toLowerCase().includes(search) || 
+            String(e.predicted_event_type).toLowerCase().includes(search);
+
+        return matchState && matchType && matchConf && matchSearch;
+    });
+
+    updateDashboard();
+    renderMarkers();
+    renderTable();
+    updateAlerts();
+}
+
 /* DATA INGESTION ENGINE WITH STATE MAPPING */
 function parseCSVFile(path) {
     return new Promise((resolve, reject) => {
@@ -410,11 +536,9 @@ async function loadDualCsvData() {
         }).filter(e => !isNaN(e.latitude) && !isNaN(e.longitude));
     }
 
-    // Fallback to embedded mock data if CSV files could not be loaded locally
     if (mergedEvents.length === 0) {
         mergedEvents = [...defaultFallbackEvents];
-        const statusSub = document.getElementById("database-status");
-        if (statusSub) statusSub.textContent = "DATABASE READY (DEMO DATA)";
+        setText("database-status", "DATABASE READY (DEMO DATA)");
     }
 
     processData(mergedEvents);
@@ -510,7 +634,6 @@ function renderMarkers() {
         `;
 
         marker.bindPopup(popupContent);
-        
         marker.on("click", () => showEventDetails(e.source_id));
         marker.addTo(markersLayer);
     });
@@ -554,7 +677,6 @@ function setupNationalAuthorityAlerts() {
     });
 }
 
-/* SHOW DETAILED EVENT METRICS & DYNAMIC NASA SATELLITE IMAGERY */
 /* SHOW DETAILED EVENT METRICS & DYNAMIC NASA SATELLITE IMAGERY */
 function showEventDetails(sourceId) {
     const event = allEvents.find(e => String(e.source_id) === String(sourceId));
@@ -639,7 +761,18 @@ function showEventDetails(sourceId) {
 
     document.getElementById("details-panel")?.scrollIntoView({ behavior: 'smooth' });
 }
-/* AI PREDICTION FORM */
+
+function handleNasaImageLoad() {
+    document.getElementById("nasa-loading")?.classList.add("hidden");
+    document.getElementById("nasa-sat-image")?.classList.remove("hidden");
+}
+
+function handleNasaImageError() {
+    document.getElementById("nasa-loading")?.classList.add("hidden");
+    document.getElementById("nasa-error")?.classList.remove("hidden");
+}
+
+/* AI PREDICTION FORM HANDLER */
 function setupPredictionForm() {
     const form = document.getElementById("prediction-form");
     if (!form) return;
@@ -648,159 +781,39 @@ function setupPredictionForm() {
         e.preventDefault();
 
         const activeDays = Number(document.getElementById("active_days")?.value) || 0;
-        const obsSpan = Number(document.getElementById("observation_span")?.value) || 1;
+        const obsSpan = Math.max(1, Number(document.getElementById("observation_span")?.value) || 1);
         const calculatedPersistence = Math.min(100, Math.round((activeDays / obsSpan) * 100));
-        
-        const stateSelect = document.getElementById("state-filter");
-        const selectedState = (stateSelect && stateSelect.value !== "ALL") ? stateSelect.value : "Odisha";
 
-        const payload = {
-            source_id: "PRED_" + Date.now().toString().substring(8),
-            state: selectedState,
-            latitude: Number(document.getElementById("latitude")?.value),
-            longitude: Number(document.getElementById("longitude")?.value),
-            mean_frp: Number(document.getElementById("mean_frp")?.value),
-            predicted_event_type: document.getElementById("facility_type")?.value !== "None" ? "Industrial" : "Agricultural",
-            confidence: Math.floor(Math.random() * (98 - 72 + 1)) + 72,
+        const stateVal = document.getElementById("pred_state")?.value || "National";
+        const typeVal = document.getElementById("pred_type")?.value || "Industrial";
+        const confVal = parseFloat(document.getElementById("pred_confidence")?.value) || 85.0;
+        const latVal = parseFloat(document.getElementById("pred_lat")?.value) || 20.5937;
+        const lonVal = parseFloat(document.getElementById("pred_lon")?.value) || 78.9629;
+
+        const newEvent = {
+            source_id: "PRED_" + Math.random().toString(36).substring(2, 7).toUpperCase(),
+            state: stateVal,
+            latitude: latVal,
+            longitude: lonVal,
+            predicted_event_type: typeVal,
+            confidence: confVal,
             persistence_score: calculatedPersistence,
-            landcover: "Monitored Zone",
+            landcover: "User Specified",
+            mean_frp: 25.0,
             imageUrl: sampleFireImages[0]
         };
 
-        saveEventToDatabase(payload);
-        allEvents.unshift(payload);
-        applyFilters();
-
-        const resultBox = document.getElementById("prediction-result");
-        resultBox?.classList.remove("hidden");
-        setText("result-type", payload.predicted_event_type);
-        setText("result-confidence-value", `${payload.confidence.toFixed(1)}%`);
-        setText("result-persistence-value", `${payload.persistence_score}%`);
-
-        const confFill = document.getElementById("result-confidence-fill");
-        const persFill = document.getElementById("result-persistence-fill");
-        if (confFill) confFill.style.width = `${payload.confidence}%`;
-        if (persFill) persFill.style.width = `${payload.persistence_score}%`;
+        allEvents.unshift(newEvent);
         
-        showToast(`New prediction recorded: ${payload.source_id}`, "success");
-        resultBox?.scrollIntoView({ behavior: 'smooth' });
-    });
-}
+        // Save user entry into local storage
+        const userDb = loadDatabase();
+        userDb.unshift(newEvent);
+        saveDatabase(userDb);
 
-/* FILTERS & SEARCH CONTROLS */
-function setupEventListeners() {
-    const stateFilter = document.getElementById("state-filter");
-    const typeFilter = document.getElementById("type-filter");
-    const confidenceFilter = document.getElementById("confidence-filter");
-    const confidenceOutput = document.getElementById("confidence-output");
-    const landcoverFilter = document.getElementById("landcover-filter");
-    const searchInput = document.getElementById("search-input");
-    const resetBtn = document.getElementById("reset-btn");
-
-    confidenceFilter?.addEventListener("input", (e) => {
-        if (confidenceOutput) confidenceOutput.value = `${e.target.value}%`;
         applyFilters();
+        form.reset();
+
+        showToast(`Event ${newEvent.source_id} predicted and registered into database!`, "success");
+        showEventDetails(newEvent.source_id);
     });
-
-    stateFilter?.addEventListener("change", () => {
-        applyFilters();
-        const selectedState = stateFilter.value;
-        if (stateCoordinates[selectedState] && map) {
-            map.flyTo([stateCoordinates[selectedState].lat, stateCoordinates[selectedState].lng], stateCoordinates[selectedState].zoom);
-        }
-    });
-
-    typeFilter?.addEventListener("change", applyFilters);
-    landcoverFilter?.addEventListener("change", applyFilters);
-    searchInput?.addEventListener("input", applyFilters);
-
-    resetBtn?.addEventListener("click", () => {
-        if (stateFilter) stateFilter.value = "ALL";
-        if (typeFilter) typeFilter.value = "ALL";
-        if (confidenceFilter) {
-            confidenceFilter.value = "0";
-            if (confidenceOutput) confidenceOutput.value = "0%";
-        }
-        if (landcoverFilter) landcoverFilter.value = "ALL";
-        if (searchInput) searchInput.value = "";
-        applyFilters();
-        if (map) map.setView([20.5937, 78.9629], 5);
-    });
-}
-
-function applyFilters() {
-    const stateSelect = document.getElementById("state-filter");
-    const typeSelect = document.getElementById("type-filter");
-    const confInput = document.getElementById("confidence-filter");
-    const landcoverSelect = document.getElementById("landcover-filter");
-    const searchInp = document.getElementById("search-input");
-
-    const state = stateSelect?.value || "ALL";
-    const type = typeSelect?.value || "ALL";
-    const minConf = Number(confInput?.value || 0);
-    const landcover = landcoverSelect?.value || "ALL";
-    const query = searchInp?.value.toLowerCase().trim() || "";
-
-    filteredEvents = allEvents.filter(e => {
-        const matchesState = (state === "ALL") || e.state === state;
-        const matchesType = (type === "ALL") || normalizeType(e.predicted_event_type) === type;
-        const matchesConf = e.confidence >= minConf;
-        const matchesLandcover = (landcover === "ALL") || e.landcover === landcover;
-        const matchesSearch = !query || String(e.source_id).toLowerCase().includes(query);
-
-        return matchesState && matchesType && matchesConf && matchesLandcover && matchesSearch;
-    });
-
-    updateDashboard();
-    renderTable();
-    renderMarkers();
-    updateAlerts();
-}
-
-/* LOCAL STORAGE & TOAST MESSAGES */
-function loadDatabase() {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } 
-    catch { return []; }
-}
-
-function saveEventToDatabase(event) {
-    const db = loadDatabase();
-    db.push(event);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
-}
-
-function showToast(message, type = "info") {
-    const container = document.getElementById("toast-container");
-    if (!container) return;
-
-    const toast = document.createElement("div");
-    toast.className = `toast ${type}`;
-    toast.textContent = message;
-
-    container.appendChild(toast);
-    setTimeout(() => toast.remove(), 4000);
-}
-
-function normalizeType(type) {
-    const val = String(type).toLowerCase();
-    if (val.includes("industrial")) return "Industrial";
-    if (val.includes("forest") || val.includes("natural")) return "Forest/Natural";
-    if (val.includes("agricultural")) return "Agricultural";
-    return "Other";
-}
-
-function getEventColor(type) {
-    if (type === "Industrial") return "#ff4d5a";
-    if (type === "Forest/Natural") return "#22c55e";
-    if (type === "Agricultural") return "#f59e0b";
-    return "#94a3b8";
-}
-
-function setText(id, txt) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = txt;
-}
-
-function escapeHTML(str) {
-    return String(str).replace(/[&<>"']/g, '');
 }
