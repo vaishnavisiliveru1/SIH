@@ -565,7 +565,7 @@ function showEventDetails(sourceId) {
     document.querySelectorAll(".view-section").forEach(sec => sec.classList.add("hidden"));
     document.getElementById("dashboard-section")?.classList.remove("hidden");
 
-    // Calculate T-2 days for reliable NASA GIBS tile availability
+    // Fetch imagery from 2 days ago to guarantee tile availability
     const dateObj = new Date();
     dateObj.setDate(dateObj.getDate() - 2);
     const dateIso = dateObj.toISOString().split("T")[0]; // YYYY-MM-DD
@@ -573,31 +573,16 @@ function showEventDetails(sourceId) {
     const lat = Number(event.latitude);
     const lon = Number(event.longitude);
 
-    // Calculate Bounding Box (minLon, minLat, maxLon, maxLat)
-    const bbox = [
-        (lon - 0.15).toFixed(4),
-        (lat - 0.15).toFixed(4),
-        (lon + 0.15).toFixed(4),
-        (lat + 0.15).toFixed(4)
-    ].join(",");
+    // EPSG:4326 in WMS 1.3.0 expects Latitude first: minLat, minLon, maxLat, maxLon
+    const minLat = (lat - 0.15).toFixed(4);
+    const minLon = (lon - 0.15).toFixed(4);
+    const maxLat = (lat + 0.15).toFixed(4);
+    const maxLon = (lon + 0.15).toFixed(4);
+    
+    const bbox = `${minLat},${minLon},${maxLat},${maxLon}`;
 
-    // NASA GIBS WMS Request with complete parameter set
-    const params = new URLSearchParams({
-        SERVICE: 'WMS',
-        REQUEST: 'GetMap',
-        LAYERS: 'VIIRS_SNPP_CorrectedReflectance_TrueColor',
-        STYLES: '',
-        FORMAT: 'image/jpeg',
-        TRANSPARENT: 'false',
-        HEIGHT: '500',
-        WIDTH: '600',
-        TIME: dateIso,
-        VERSION: '1.3.0',
-        CRS: 'EPSG:4326',
-        BBOX: bbox
-    });
-
-    const nasaSatelliteUrl = `https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?${params.toString()}`;
+    // NASA GIBS WMS 1.3.0 Endpoint
+    const nasaSatelliteUrl = `https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&LAYERS=VIIRS_SNPP_CorrectedReflectance_TrueColor&STYLES=&FORMAT=image/jpeg&TRANSPARENT=false&HEIGHT=500&WIDTH=600&TIME=${dateIso}&VERSION=1.3.0&CRS=EPSG:4326&BBOX=${bbox}`;
 
     container.innerHTML = `
         <div class="details-grid">
@@ -639,7 +624,6 @@ function showEventDetails(sourceId) {
                         src="${nasaSatelliteUrl}" 
                         alt="NASA GIBS Satellite Snapshot at ${lat}, ${lon}"
                         class="nasa-sat-img hidden"
-                        crossorigin="anonymous"
                         onload="handleNasaImageLoad()"
                         onerror="handleNasaImageError()"
                     />
