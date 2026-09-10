@@ -678,6 +678,7 @@ function setupNationalAuthorityAlerts() {
 }
 
 /* SHOW DETAILED EVENT METRICS & DYNAMIC NASA SATELLITE IMAGERY */
+/* SHOW DETAILED EVENT METRICS & HIGH-RES SENTINEL-2 SATELLITE IMAGERY */
 function showEventDetails(sourceId) {
     const event = allEvents.find(e => String(e.source_id) === String(sourceId));
     const container = document.getElementById("details-content");
@@ -687,24 +688,24 @@ function showEventDetails(sourceId) {
     document.querySelectorAll(".view-section").forEach(sec => sec.classList.add("hidden"));
     document.getElementById("dashboard-section")?.classList.remove("hidden");
 
-    // Fetch imagery from 2 days ago to guarantee tile availability
+    // Fetch imagery from 5 days ago to guarantee Sentinel-2 pass coverage
     const dateObj = new Date();
-    dateObj.setDate(dateObj.getDate() - 2);
+    dateObj.setDate(dateObj.getDate() - 5);
     const dateIso = dateObj.toISOString().split("T")[0]; // YYYY-MM-DD
 
     const lat = Number(event.latitude);
     const lon = Number(event.longitude);
 
-    // EPSG:4326 in WMS 1.3.0 expects Latitude first: minLat, minLon, maxLat, maxLon
-    const minLat = (lat - 0.15).toFixed(4);
-    const minLon = (lon - 0.15).toFixed(4);
-    const maxLat = (lat + 0.15).toFixed(4);
-    const maxLon = (lon + 0.15).toFixed(4);
+    // Bounding Box (Latitude first for WMS 1.3.0 EPSG:4326)
+    const minLat = (lat - 0.08).toFixed(4);
+    const minLon = (lon - 0.08).toFixed(4);
+    const maxLat = (lat + 0.08).toFixed(4);
+    const maxLon = (lon + 0.08).toFixed(4);
     
     const bbox = `${minLat},${minLon},${maxLat},${maxLon}`;
 
-    // NASA GIBS WMS 1.3.0 Endpoint
-    const nasaSatelliteUrl = `https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&LAYERS=VIIRS_SNPP_CorrectedReflectance_TrueColor&STYLES=&FORMAT=image/jpeg&TRANSPARENT=false&HEIGHT=500&WIDTH=600&TIME=${dateIso}&VERSION=1.3.0&CRS=EPSG:4326&BBOX=${bbox}`;
+    // NASA GIBS WMS 1.3.0 Endpoint with Sentinel-2 High-Resolution Layer
+    const sentinel2Url = `https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&LAYERS=Sentinel_2_L2A_Color_Infrared&STYLES=&FORMAT=image/jpeg&TRANSPARENT=false&HEIGHT=600&WIDTH=600&TIME=${dateIso}&VERSION=1.3.0&CRS=EPSG:4326&BBOX=${bbox}`;
 
     container.innerHTML = `
         <div class="details-grid">
@@ -717,34 +718,31 @@ function showEventDetails(sourceId) {
                 <div><span class="metric-label">COORDINATES</span><br><strong>${lat.toFixed(4)}°, ${lon.toFixed(4)}°</strong></div>
             </div>
 
-            <!-- NASA SATELLITE IMAGERY CARD -->
+            <!-- HIGH-RES SENTINEL-2 SATELLITE CARD -->
             <div class="nasa-card">
                 <div class="nasa-card-header">
                     <div>
-                        <span class="nasa-title"><i class="fa-solid fa-satellite"></i> NASA Satellite Imagery</span>
-                        <span class="nasa-subtext">Latest available imagery (${dateIso})</span>
+                        <span class="nasa-title"><i class="fa-solid fa-satellite-dish"></i> Sentinel-2 High-Res Imagery</span>
+                        <span class="nasa-subtext">ESA / NASA GIBS 10m-20m SWIR Band (${dateIso})</span>
                     </div>
-                    <span class="badge">EPSG:4326</span>
+                    <span class="badge" style="background:#0284c7; color:#fff;">10m Resolution</span>
                 </div>
 
                 <div class="nasa-img-container" id="nasa-img-container">
-                    <!-- LOADING STATE -->
                     <div class="nasa-loading" id="nasa-loading">
                         <i class="fa-solid fa-spinner fa-spin"></i>
-                        <span>Loading NASA Worldview Tile...</span>
+                        <span>Loading High-Resolution Sentinel-2 Tile...</span>
                     </div>
 
-                    <!-- ERROR STATE -->
                     <div class="nasa-error hidden" id="nasa-error">
                         <i class="fa-solid fa-triangle-exclamation"></i>
-                        <span>Satellite imagery temporarily unavailable for this region/date.</span>
+                        <span>Sentinel-2 tile unavailable for exact coordinate pass. Try adjusting date window.</span>
                     </div>
 
-                    <!-- IMAGERY ELEMENT -->
                     <img 
                         id="nasa-sat-image" 
-                        src="${nasaSatelliteUrl}" 
-                        alt="NASA GIBS Satellite Snapshot at ${lat}, ${lon}"
+                        src="${sentinel2Url}" 
+                        alt="Sentinel-2 Snapshot at ${lat}, ${lon}"
                         class="nasa-sat-img hidden"
                         onload="handleNasaImageLoad()"
                         onerror="handleNasaImageError()"
@@ -752,8 +750,8 @@ function showEventDetails(sourceId) {
                 </div>
 
                 <div class="nasa-card-footer">
-                    <span><strong>Coordinates:</strong> ${lat.toFixed(4)} N, ${lon.toFixed(4)} E</span>
-                    <span class="badge-status">True-Color (VIIRS / SNPP)</span>
+                    <span><strong>Center Point:</strong> ${lat.toFixed(4)}° N, ${lon.toFixed(4)}° E</span>
+                    <span class="badge-status">Infrared / SWIR Spectrum</span>
                 </div>
             </div>
         </div>
@@ -761,17 +759,6 @@ function showEventDetails(sourceId) {
 
     document.getElementById("details-panel")?.scrollIntoView({ behavior: 'smooth' });
 }
-
-function handleNasaImageLoad() {
-    document.getElementById("nasa-loading")?.classList.add("hidden");
-    document.getElementById("nasa-sat-image")?.classList.remove("hidden");
-}
-
-function handleNasaImageError() {
-    document.getElementById("nasa-loading")?.classList.add("hidden");
-    document.getElementById("nasa-error")?.classList.remove("hidden");
-}
-
 /* AI PREDICTION FORM HANDLER */
 function setupPredictionForm() {
     const form = document.getElementById("prediction-form");
