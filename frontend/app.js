@@ -18,6 +18,15 @@ const sampleFireImages = [
     "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?auto=format&fit=crop&w=600&q=80"
 ];
 
+// Default embedded dataset as fallback if local CSV loading is restricted
+const defaultFallbackEvents = [
+    { source_id: "SOURCE_0001", state: "Odisha", latitude: 20.7957, longitude: 85.2547, predicted_event_type: "Industrial", confidence: 92.4, persistence_score: 85, landcover: "Built-up", mean_frp: 35.4, imageUrl: sampleFireImages[0] },
+    { source_id: "SOURCE_0002", state: "Jharkhand", latitude: 23.6102, longitude: 85.2799, predicted_event_type: "Forest/Natural", confidence: 89.1, persistence_score: 72, landcover: "Tree cover", mean_frp: 18.2, imageUrl: sampleFireImages[1] },
+    { source_id: "SOURCE_0003", state: "Chhattisgarh", latitude: 21.2787, longitude: 81.8661, predicted_event_type: "Agricultural", confidence: 78.5, persistence_score: 45, landcover: "Cropland", mean_frp: 12.0, imageUrl: sampleFireImages[2] },
+    { source_id: "SOURCE_0004", state: "Maharashtra", latitude: 19.7515, longitude: 75.7139, predicted_event_type: "Industrial", confidence: 94.0, persistence_score: 91, landcover: "Built-up", mean_frp: 52.1, imageUrl: sampleFireImages[0] },
+    { source_id: "SOURCE_0005", state: "Karnataka", latitude: 15.3173, longitude: 75.7139, predicted_event_type: "Other", confidence: 64.2, persistence_score: 30, landcover: "Grassland", mean_frp: 8.5, imageUrl: sampleFireImages[1] }
+];
+
 /* DICTIONARY FOR MULTILINGUAL UI TRANSLATION */
 const uiTranslations = {
     "en-US": {
@@ -124,15 +133,16 @@ function initializeMultilingualAndVoice() {
             micBtn.classList.remove("listening");
             const command = event.results[0][0].transcript.toLowerCase();
             const currentLang = langSelect.value;
-            transcriptText.textContent = `"${command}"`;
+            if (transcriptText) transcriptText.textContent = `"${command}"`;
 
             processVoiceCommand(command, currentLang);
         };
 
-        recognition.onerror = () => micBtn.classList.remove("listening");
+        recognition.onerror = () => micBtn?.classList.remove("listening");
         recognition.onend = () => {
-            micBtn.classList.remove("listening");
-            document.getElementById("mic-label").textContent = uiTranslations[langSelect.value]?.micLabel || "Voice Control";
+            micBtn?.classList.remove("listening");
+            const micLabel = document.getElementById("mic-label");
+            if (micLabel) micLabel.textContent = uiTranslations[langSelect.value]?.micLabel || "Voice Control";
         };
     }
 }
@@ -180,27 +190,27 @@ function processVoiceCommand(command, lang) {
 
     // State Command Handling
     if (command.includes("odisha") || command.includes("ओडिशा") || command.includes("ஒடிசா")) {
-        stateFilter.value = "Odisha";
+        if (stateFilter) stateFilter.value = "Odisha";
         speakResponse("Filtering dashboard for Odisha", lang);
     } else if (command.includes("jharkhand") || command.includes("झारखंड") || command.includes("ஜார்க்கண்ட்")) {
-        stateFilter.value = "Jharkhand";
+        if (stateFilter) stateFilter.value = "Jharkhand";
         speakResponse("Filtering dashboard for Jharkhand", lang);
     } else if (command.includes("chhattisgarh") || command.includes("छत्तीसगढ़") || command.includes("சத்தீஸ்கர்")) {
-        stateFilter.value = "Chhattisgarh";
+        if (stateFilter) stateFilter.value = "Chhattisgarh";
         speakResponse("Filtering dashboard for Chhattisgarh", lang);
     } else if (command.includes("maharashtra") || command.includes("महाराष्ट्र") || command.includes("மகாராஷ்டிரா")) {
-        stateFilter.value = "Maharashtra";
+        if (stateFilter) stateFilter.value = "Maharashtra";
         speakResponse("Filtering dashboard for Maharashtra", lang);
     } else if (command.includes("karnataka") || command.includes("कर्नाटक") || command.includes("கர்நாடகா")) {
-        stateFilter.value = "Karnataka";
+        if (stateFilter) stateFilter.value = "Karnataka";
         speakResponse("Filtering dashboard for Karnataka", lang);
     }
 
     // Category Command Handling
     if (command.includes("industrial") || command.includes("इंडस्ट्रियल") || command.includes("தொழில்துறை")) {
-        typeFilter.value = "Industrial";
+        if (typeFilter) typeFilter.value = "Industrial";
     } else if (command.includes("forest") || command.includes("जंगल") || command.includes("காடு")) {
-        typeFilter.value = "Forest/Natural";
+        if (typeFilter) typeFilter.value = "Forest/Natural";
     } else if (command.includes("reset") || command.includes("रीसेट") || command.includes("மீட்டமை")) {
         document.getElementById("reset-btn")?.click();
         speakResponse("Filters reset", lang);
@@ -242,13 +252,14 @@ function initializeSidebarAndNavigation() {
     const sidebar = document.getElementById("sidebar");
     const toggleBtn = document.getElementById("sidebar-toggle");
     
-    toggleBtn?.addEventListener("click", () => sidebar.classList.toggle("collapsed"));
+    toggleBtn?.addEventListener("click", () => sidebar?.classList.toggle("collapsed"));
 
     const navItems = document.querySelectorAll(".nav-item");
     const viewSections = document.querySelectorAll(".view-section");
 
     navItems.forEach(item => {
-        item.addEventListener("click", () => {
+        item.addEventListener("click", (e) => {
+            e.preventDefault();
             navItems.forEach(i => i.classList.remove("active"));
             item.classList.add("active");
 
@@ -284,27 +295,27 @@ function initializeAuthModal() {
     const registerForm = document.getElementById("register-form");
     const googleBtn = document.getElementById("google-auth-btn");
 
-    if (openBtn) openBtn.onclick = () => modal.classList.add("open");
-    if (closeBtn) closeBtn.onclick = () => modal.classList.remove("open");
+    if (openBtn) openBtn.onclick = () => modal?.classList.add("open");
+    if (closeBtn) closeBtn.onclick = () => modal?.classList.remove("open");
 
     if (tabLogin && tabRegister) {
         tabLogin.onclick = () => {
             tabLogin.classList.add("active");
             tabRegister.classList.remove("active");
-            loginForm.classList.remove("hidden");
-            registerForm.classList.add("hidden");
+            loginForm?.classList.remove("hidden");
+            registerForm?.classList.add("hidden");
         };
         tabRegister.onclick = () => {
             tabRegister.classList.add("active");
             tabLogin.classList.remove("active");
-            registerForm.classList.remove("hidden");
-            loginForm.classList.add("hidden");
+            registerForm?.classList.remove("hidden");
+            loginForm?.classList.add("hidden");
         };
     }
 
     googleBtn?.addEventListener("click", () => {
         showToast("Authenticated via Google OAuth", "success");
-        modal.classList.remove("open");
+        modal?.classList.remove("open");
     });
 }
 
@@ -325,6 +336,9 @@ function initializeMap() {
 /* DATA INGESTION ENGINE WITH STATE MAPPING */
 function parseCSVFile(path) {
     return new Promise((resolve, reject) => {
+        if (typeof Papa === "undefined") {
+            return reject("PapaParse library missing");
+        }
         Papa.parse(path, {
             download: true,
             header: true,
@@ -344,54 +358,64 @@ async function loadDualCsvData() {
     for (let path of eventPaths) {
         try {
             const data = await parseCSVFile(path);
-            if (data.length > 0) { eventData = data; break; }
+            if (data && data.length > 0) { eventData = data; break; }
         } catch (e) {}
     }
 
     for (let path of persPaths) {
         try {
             const data = await parseCSVFile(path);
-            if (data.length > 0) { persData = data; break; }
+            if (data && data.length > 0) { persData = data; break; }
         } catch (e) {}
     }
 
-    const persMap = new Map();
-    persData.forEach(p => {
-        if (p.source_id) persMap.set(String(p.source_id).trim(), p);
-    });
-
+    let mergedEvents = [];
     const statesList = ["Odisha", "Jharkhand", "Chhattisgarh", "Maharashtra", "Karnataka"];
 
-    const mergedEvents = eventData.map((event, idx) => {
-        const sid = String(event.source_id || "").trim();
-        const persRecord = persMap.get(sid) || {};
-        const confidence = parseFloat(event.confidence_pct) || 75.0;
+    if (eventData.length > 0) {
+        const persMap = new Map();
+        persData.forEach(p => {
+            if (p.source_id) persMap.set(String(p.source_id).trim(), p);
+        });
 
-        let persistenceScore = 0;
-        if (persRecord.persistence_score !== undefined && persRecord.persistence_score !== null) {
-            const rawP = parseFloat(persRecord.persistence_score);
-            persistenceScore = rawP <= 1 ? Math.round(rawP * 100 * 10) / 10 : Math.round(rawP);
-        } else {
-            const activeDays = parseFloat(event.active_days || persRecord.active_days || 0);
-            const obsSpan = Math.max(1, parseFloat(event.observation_span_days || persRecord.observation_span_days || 1));
-            persistenceScore = Math.min(100, Math.round((activeDays / obsSpan) * 100));
-        }
+        mergedEvents = eventData.map((event, idx) => {
+            const sid = String(event.source_id || "").trim();
+            const persRecord = persMap.get(sid) || {};
+            const confidence = parseFloat(event.confidence_pct) || 75.0;
 
-        return {
-            source_id: sid || "EVENT_" + Math.random().toString(36).substring(2, 7),
-            state: event.state || statesList[idx % statesList.length], // Assign state dynamically
-            latitude: parseFloat(event.latitude),
-            longitude: parseFloat(event.longitude),
-            predicted_event_type: event.predicted_event_type || event.event_type || "Other",
-            confidence: confidence,
-            persistence_score: persistenceScore,
-            landcover: event.landcover_class || "Unknown",
-            mean_frp: parseFloat(event.mean_frp || persRecord.mean_frp || 0),
-            max_frp: parseFloat(event.max_frp || persRecord.max_frp || 0),
-            mean_brightness: parseFloat(event.mean_brightness || 0),
-            imageUrl: sampleFireImages[idx % sampleFireImages.length]
-        };
-    }).filter(e => !isNaN(e.latitude) && !isNaN(e.longitude));
+            let persistenceScore = 0;
+            if (persRecord.persistence_score !== undefined && persRecord.persistence_score !== null) {
+                const rawP = parseFloat(persRecord.persistence_score);
+                persistenceScore = rawP <= 1 ? Math.round(rawP * 100 * 10) / 10 : Math.round(rawP);
+            } else {
+                const activeDays = parseFloat(event.active_days || persRecord.active_days || 0);
+                const obsSpan = Math.max(1, parseFloat(event.observation_span_days || persRecord.observation_span_days || 1));
+                persistenceScore = Math.min(100, Math.round((activeDays / obsSpan) * 100));
+            }
+
+            return {
+                source_id: sid || "EVENT_" + Math.random().toString(36).substring(2, 7),
+                state: event.state || statesList[idx % statesList.length],
+                latitude: parseFloat(event.latitude),
+                longitude: parseFloat(event.longitude),
+                predicted_event_type: event.predicted_event_type || event.event_type || "Other",
+                confidence: confidence,
+                persistence_score: persistenceScore,
+                landcover: event.landcover_class || "Unknown",
+                mean_frp: parseFloat(event.mean_frp || persRecord.mean_frp || 0),
+                max_frp: parseFloat(event.max_frp || persRecord.max_frp || 0),
+                mean_brightness: parseFloat(event.mean_brightness || 0),
+                imageUrl: sampleFireImages[idx % sampleFireImages.length]
+            };
+        }).filter(e => !isNaN(e.latitude) && !isNaN(e.longitude));
+    }
+
+    // Fallback to embedded mock data if CSV files could not be loaded locally
+    if (mergedEvents.length === 0) {
+        mergedEvents = [...defaultFallbackEvents];
+        const statusSub = document.getElementById("database-status");
+        if (statusSub) statusSub.textContent = "DATABASE READY (DEMO DATA)";
+    }
 
     processData(mergedEvents);
 }
@@ -444,11 +468,11 @@ function renderTable() {
             <td><strong>${escapeHTML(e.source_id)}</strong></td>
             <td><span class="badge">${escapeHTML(e.state || 'National')}</span></td>
             <td><span class="badge" style="background: ${getEventColor(normalizeType(e.predicted_event_type))}22; color: ${getEventColor(normalizeType(e.predicted_event_type))}">${normalizeType(e.predicted_event_type)}</span></td>
-            <td><strong>${e.confidence.toFixed(1)}%</strong></td>
+            <td><strong>${Number(e.confidence).toFixed(1)}%</strong></td>
             <td><strong style="color:var(--cyan)">${e.persistence_score}%</strong></td>
-            <td>${e.latitude ? e.latitude.toFixed(4) : "—"}</td>
-            <td>${e.longitude ? e.longitude.toFixed(4) : "—"}</td>
-            <td>${e.mean_frp ? e.mean_frp.toFixed(1) : "—"}</td>
+            <td>${e.latitude ? Number(e.latitude).toFixed(4) : "—"}</td>
+            <td>${e.longitude ? Number(e.longitude).toFixed(4) : "—"}</td>
+            <td>${e.mean_frp ? Number(e.mean_frp).toFixed(1) : "—"}</td>
             <td><button class="btn-secondary" onclick="showEventDetails('${e.source_id}')">View</button></td>
         `;
         tbody.appendChild(tr);
@@ -474,7 +498,7 @@ function renderMarkers() {
                 <h4>🔥 ${escapeHTML(e.source_id)}</h4>
                 <p><strong>State:</strong> ${escapeHTML(e.state || 'N/A')}</p>
                 <p><strong>Type:</strong> ${normalizeType(e.predicted_event_type)}</p>
-                <p><strong>Confidence:</strong> ${e.confidence.toFixed(1)}%</p>
+                <p><strong>Confidence:</strong> ${Number(e.confidence).toFixed(1)}%</p>
                 <p><strong>Persistence:</strong> ${e.persistence_score}%</p>
                 <img 
                   src="${e.imageUrl || sampleFireImages[0]}" 
@@ -511,7 +535,7 @@ function updateAlerts() {
         item.innerHTML = `
             <div>
                 <strong>${e.source_id} [${e.state}] - High Intensity Event</strong>
-                <p style="font-size:12px; color:var(--muted)">Type: ${e.predicted_event_type} | Confidence: ${e.confidence.toFixed(1)}% | Persistence: ${e.persistence_score}%</p>
+                <p style="font-size:12px; color:var(--muted)">Type: ${e.predicted_event_type} | Confidence: ${Number(e.confidence).toFixed(1)}% | Persistence: ${e.persistence_score}%</p>
             </div>
             <button class="btn-secondary" onclick="showEventDetails('${e.source_id}')">Inspect</button>
         `;
@@ -524,7 +548,8 @@ function setupNationalAuthorityAlerts() {
     const btn = document.getElementById("send-national-alert-btn");
     btn?.addEventListener("click", () => {
         const criticalCount = filteredEvents.filter(e => e.confidence >= ALERT_RULES.CRITICAL).length;
-        const currentState = document.getElementById("state-filter")?.value || "National";
+        const stateSelect = document.getElementById("state-filter");
+        const currentState = stateSelect ? stateSelect.value : "National";
         showToast(`Dispatched Urgent Incident Brief (${criticalCount} Critical Anomalies in ${currentState}) to NDMA Desk.`, "alert");
     });
 }
@@ -539,10 +564,10 @@ function showEventDetails(sourceId) {
 
     container.innerHTML = `
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-            <div><span style="color:var(--muted); font-size:12px;">SOURCE ID</span><br><strong>${event.source_id}</strong></div>
-            <div><span style="color:var(--muted); font-size:12px;">STATE JURISDICTION</span><br><strong>${event.state}</strong></div>
-            <div><span style="color:var(--muted); font-size:12px;">EVENT CLASSIFICATION</span><br><strong>${event.predicted_event_type}</strong></div>
-            <div><span style="color:var(--muted); font-size:12px;">CONFIDENCE SCORE</span><br><strong style="color:var(--cyan)">${event.confidence.toFixed(1)}%</strong></div>
+            <div><span style="color:var(--muted); font-size:12px;">SOURCE ID</span><br><strong>${escapeHTML(event.source_id)}</strong></div>
+            <div><span style="color:var(--muted); font-size:12px;">STATE JURISDICTION</span><br><strong>${escapeHTML(event.state)}</strong></div>
+            <div><span style="color:var(--muted); font-size:12px;">EVENT CLASSIFICATION</span><br><strong>${escapeHTML(event.predicted_event_type)}</strong></div>
+            <div><span style="color:var(--muted); font-size:12px;">CONFIDENCE SCORE</span><br><strong style="color:var(--cyan)">${Number(event.confidence).toFixed(1)}%</strong></div>
             <div><span style="color:var(--muted); font-size:12px;">PERSISTENCE SCORE</span><br><strong style="color:var(--agricultural)">${event.persistence_score}%</strong></div>
             <div><span style="color:var(--muted); font-size:12px;">LATITUDE / LONGITUDE</span><br><strong>${event.latitude}, ${event.longitude}</strong></div>
         </div>
@@ -563,18 +588,20 @@ function setupPredictionForm() {
     form.addEventListener("submit", function (e) {
         e.preventDefault();
 
-        const activeDays = Number(document.getElementById("active_days").value) || 0;
-        const obsSpan = Number(document.getElementById("observation_span").value) || 1;
+        const activeDays = Number(document.getElementById("active_days")?.value) || 0;
+        const obsSpan = Number(document.getElementById("observation_span")?.value) || 1;
         const calculatedPersistence = Math.min(100, Math.round((activeDays / obsSpan) * 100));
-        const selectedState = document.getElementById("state-filter")?.value !== "ALL" ? document.getElementById("state-filter").value : "Odisha";
+        
+        const stateSelect = document.getElementById("state-filter");
+        const selectedState = (stateSelect && stateSelect.value !== "ALL") ? stateSelect.value : "Odisha";
 
         const payload = {
             source_id: "PRED_" + Date.now().toString().substring(8),
             state: selectedState,
-            latitude: Number(document.getElementById("latitude").value),
-            longitude: Number(document.getElementById("longitude").value),
-            mean_frp: Number(document.getElementById("mean_frp").value),
-            predicted_event_type: document.getElementById("facility_type").value !== "None" ? "Industrial" : "Agricultural",
+            latitude: Number(document.getElementById("latitude")?.value),
+            longitude: Number(document.getElementById("longitude")?.value),
+            mean_frp: Number(document.getElementById("mean_frp")?.value),
+            predicted_event_type: document.getElementById("facility_type")?.value !== "None" ? "Industrial" : "Agricultural",
             confidence: Math.floor(Math.random() * (98 - 72 + 1)) + 72,
             persistence_score: calculatedPersistence,
             landcover: "Monitored Zone",
@@ -586,16 +613,18 @@ function setupPredictionForm() {
         applyFilters();
 
         const resultBox = document.getElementById("prediction-result");
-        resultBox.classList.remove("hidden");
+        resultBox?.classList.remove("hidden");
         setText("result-type", payload.predicted_event_type);
         setText("result-confidence-value", `${payload.confidence.toFixed(1)}%`);
         setText("result-persistence-value", `${payload.persistence_score}%`);
 
-        document.getElementById("result-confidence-fill").style.width = `${payload.confidence}%`;
-        document.getElementById("result-persistence-fill").style.width = `${payload.persistence_score}%`;
+        const confFill = document.getElementById("result-confidence-fill");
+        const persFill = document.getElementById("result-persistence-fill");
+        if (confFill) confFill.style.width = `${payload.confidence}%`;
+        if (persFill) persFill.style.width = `${payload.persistence_score}%`;
         
         showToast(`New prediction recorded: ${payload.source_id}`, "success");
-        resultBox.scrollIntoView({ behavior: 'smooth' });
+        resultBox?.scrollIntoView({ behavior: 'smooth' });
     });
 }
 
@@ -630,7 +659,7 @@ function setupEventListeners() {
         if (stateFilter) stateFilter.value = "ALL";
         if (typeFilter) typeFilter.value = "ALL";
         if (confidenceFilter) {
-            confidenceFilter.value = 0;
+            confidenceFilter.value = "0";
             if (confidenceOutput) confidenceOutput.value = "0%";
         }
         if (landcoverFilter) landcoverFilter.value = "ALL";
@@ -641,11 +670,17 @@ function setupEventListeners() {
 }
 
 function applyFilters() {
-    const state = document.getElementById("state-filter")?.value || "ALL";
-    const type = document.getElementById("type-filter")?.value || "ALL";
-    const minConf = Number(document.getElementById("confidence-filter")?.value || 0);
-    const landcover = document.getElementById("landcover-filter")?.value || "ALL";
-    const query = document.getElementById("search-input")?.value.toLowerCase().trim() || "";
+    const stateSelect = document.getElementById("state-filter");
+    const typeSelect = document.getElementById("type-filter");
+    const confInput = document.getElementById("confidence-filter");
+    const landcoverSelect = document.getElementById("landcover-filter");
+    const searchInp = document.getElementById("search-input");
+
+    const state = stateSelect?.value || "ALL";
+    const type = typeSelect?.value || "ALL";
+    const minConf = Number(confInput?.value || 0);
+    const landcover = landcoverSelect?.value || "ALL";
+    const query = searchInp?.value.toLowerCase().trim() || "";
 
     filteredEvents = allEvents.filter(e => {
         const matchesState = (state === "ALL") || e.state === state;
@@ -709,4 +744,4 @@ function setText(id, txt) {
 
 function escapeHTML(str) {
     return String(str).replace(/[&<>"']/g, '');
-}   
+}

@@ -1,8 +1,6 @@
 /* =========================================================
-   AI THERMAL EVENT INTELLIGENCE CONTROL ENGINE
-   SYSTEM STYLESHEET
+   LIGHT & DARK THEME VARIABLES & GLOBAL STYLES
 ========================================================= */
-
 :root {
     --background: #06090e;
     --panel: rgba(13, 18, 25, 0.96);
